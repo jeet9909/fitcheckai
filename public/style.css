@@ -28,6 +28,7 @@
   --space-6: 32px;
   --space-7: 48px;
   --max-width: 720px;
+  --max-width-wide: 960px;
 }
 
 * {
@@ -687,6 +688,395 @@ textarea:focus-visible {
   .upload-section,
   .result-section,
   .feedback-section {
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+  }
+}
+
+/* ==========================================================================
+   Phase 2 additions below — shared site nav, generic cards/forms, and the
+   landing/pricing/auth/account/studio3d pages. Additive only; nothing above
+   this line changes existing studio.html markup, ids, or behavior.
+   ========================================================================== */
+
+/* ---------- Page width variants ---------- */
+.page--wide {
+  max-width: var(--max-width-wide);
+}
+
+/* ---------- Shared site nav ---------- */
+.site-nav {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.site-nav-inner {
+  max-width: var(--max-width-wide);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.site-nav-brand {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.site-nav-brand:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.site-nav-links {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.site-nav-link {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  padding: var(--space-1) 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.site-nav-link:hover {
+  color: var(--color-text);
+  border-bottom-color: var(--color-border-strong);
+}
+
+.site-nav-link:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.site-nav-link-cta {
+  background: var(--color-primary);
+  color: #fff;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 999px;
+}
+
+.site-nav-link-cta:hover {
+  background: var(--color-primary-hover);
+  color: #fff;
+  border-bottom-color: transparent;
+}
+
+.pro-badge {
+  display: inline-block;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-left: var(--space-1);
+}
+
+@media (max-width: 640px) {
+  .site-nav-inner {
+    padding: var(--space-3);
+  }
+
+  .site-nav-links {
+    gap: var(--space-3);
+  }
+}
+
+/* ---------- Generic card ---------- */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+/* ---------- Inline loading (spinner + short status text) ---------- */
+.inline-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* ---------- Banners: success variant (info/error already defined above) --- */
+.banner-success {
+  background: var(--color-success-bg);
+  border: 1px solid #bfe5c9;
+  color: #1a7a37;
+}
+
+/* ---------- Text inputs (email/password) ---------- */
+.form-field {
+  margin-bottom: var(--space-4);
+}
+
+.text-input {
+  width: 100%;
+  font: inherit;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.text-input:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.text-input[aria-invalid="true"] {
+  border-color: var(--color-error-border);
+}
+
+.field-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0 0;
+}
+
+.field-error a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* ---------- Auth pages (login/signup) ---------- */
+.auth-card {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.auth-alt-link {
+  text-align: center;
+  margin: var(--space-4) 0 0;
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+}
+
+.auth-alt-link a {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ---------- Landing page ---------- */
+.hero {
+  text-align: center;
+  padding: var(--space-6) 0 var(--space-5);
+}
+
+.hero h1 {
+  font-size: 2.25rem;
+  margin: 0 0 var(--space-3);
+}
+
+.hero-subtitle {
+  font-size: 1.125rem;
+  color: var(--color-text-muted);
+  max-width: 560px;
+  margin: 0 auto var(--space-5);
+}
+
+.hero-actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hero-note {
+  margin: var(--space-3) 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.section-heading {
+  text-align: center;
+  margin: 0 0 var(--space-5);
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .steps-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.step-card {
+  text-align: center;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+
+.step-card h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.step-card p {
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.value-prop {
+  text-align: center;
+}
+
+.value-prop p {
+  color: var(--color-text-muted);
+  max-width: 560px;
+  margin: 0 auto var(--space-4);
+}
+
+/* ---------- Pricing page ---------- */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (min-width: 640px) {
+  .pricing-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.pricing-card {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.pricing-card-pro {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.pricing-card h2 {
+  margin-top: 0;
+}
+
+.pricing-price {
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3);
+}
+
+.pricing-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.pricing-features li {
+  padding-left: 1.5em;
+  position: relative;
+}
+
+.pricing-features li::before {
+  content: "\2713";
+  position: absolute;
+  left: 0;
+  color: #2f9e57;
+  font-weight: 700;
+}
+
+.pro-plan-status {
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0 0 var(--space-3);
+}
+
+/* ---------- Account page ---------- */
+.account-details {
+  margin: 0 0 var(--space-5);
+}
+
+.account-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.account-detail-row:last-child {
+  border-bottom: none;
+}
+
+.account-detail-row dt {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.account-detail-row dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ---------- Studio 3D page ---------- */
+.studio3d-hero p {
+  color: var(--color-text-muted);
+  margin: var(--space-3) 0 0;
+}
+
+@media (max-width: 480px) {
+  .hero h1 {
+    font-size: 1.75rem;
+  }
+
+  .card {
     padding: var(--space-4);
     border-radius: var(--radius-md);
   }

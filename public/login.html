@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Log in — FitCheck AI</title>
+<meta name="description" content="Log in to your FitCheck AI account." />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="site-nav">
+  <nav class="site-nav-inner" aria-label="Main navigation">
+    <a href="/" class="site-nav-brand">FitCheck AI</a>
+    <ul class="site-nav-links" id="nav-links"></ul>
+  </nav>
+</div>
+
+<div class="page">
+  <header class="site-header">
+    <h1>Log in</h1>
+    <p class="tagline">Welcome back.</p>
+  </header>
+
+  <main>
+    <section class="card auth-card" aria-labelledby="login-heading">
+      <h2 id="login-heading" class="visually-hidden">Log in to your account</h2>
+      <form id="login-form" novalidate>
+        <div class="form-field">
+          <label class="field-label" for="login-email">Email</label>
+          <input
+            class="text-input"
+            type="email"
+            id="login-email"
+            name="email"
+            autocomplete="email"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="field-label" for="login-password">Password</label>
+          <input
+            class="text-input"
+            type="password"
+            id="login-password"
+            name="password"
+            autocomplete="current-password"
+            required
+          />
+        </div>
+
+        <p id="login-error" class="field-error" role="alert" hidden></p>
+
+        <button type="submit" id="login-submit-btn" class="btn btn-primary">Log in</button>
+      </form>
+      <p class="auth-alt-link">Don't have an account? <a href="/signup.html">Sign up</a></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>FitCheck AI &middot; <a href="/">Home</a> &middot; <a href="/studio.html">Studio</a></p>
+  </footer>
+</div>
+
+<script src="/nav.js" defer></script>
+<script src="/login.js" defer></script>
+</body>
+</html>

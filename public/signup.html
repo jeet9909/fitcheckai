@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign up — FitCheck AI</title>
+<meta name="description" content="Create a free FitCheck AI account." />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="site-nav">
+  <nav class="site-nav-inner" aria-label="Main navigation">
+    <a href="/" class="site-nav-brand">FitCheck AI</a>
+    <ul class="site-nav-links" id="nav-links"></ul>
+  </nav>
+</div>
+
+<div class="page">
+  <header class="site-header">
+    <h1>Sign up</h1>
+    <p class="tagline">Create your free FitCheck AI account.</p>
+  </header>
+
+  <main>
+    <section class="card auth-card" aria-labelledby="signup-heading">
+      <h2 id="signup-heading" class="visually-hidden">Create an account</h2>
+      <form id="signup-form" novalidate>
+        <div class="form-field">
+          <label class="field-label" for="signup-email">Email</label>
+          <input
+            class="text-input"
+            type="email"
+            id="signup-email"
+            name="email"
+            autocomplete="email"
+            required
+          />
+        </div>
+
+        <div class="form-field">
+          <label class="field-label" for="signup-password">Password</label>
+          <input
+            class="text-input"
+            type="password"
+            id="signup-password"
+            name="password"
+            autocomplete="new-password"
+            minlength="8"
+            required
+          />
+          <p class="field-hint">At least 8 characters.</p>
+        </div>
+
+        <p id="signup-error" class="field-error" role="alert" hidden></p>
+
+        <button type="submit" id="signup-submit-btn" class="btn btn-primary">Sign up</button>
+      </form>
+      <p class="auth-alt-link">Already have an account? <a href="/login.html">Log in</a></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>FitCheck AI &middot; <a href="/">Home</a> &middot; <a href="/studio.html">Studio</a></p>
+  </footer>
+</div>
+
+<script src="/nav.js" defer></script>
+<script src="/signup.js" defer></script>
+</body>
+</html>

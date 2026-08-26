@@ -1,3 +1,8 @@
 name = "fitcheckai"
 compatibility_date = "2024-09-23"
 pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fitcheckai-db"
+database_id = "86751b1f-980f-4e8b-8e4d-580d998a9339"

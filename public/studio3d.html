@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Studio 3D — coming soon — FitCheck AI</title>
+<meta name="description" content="Studio 3D is in development: a 3D model of you, viewable from any angle wearing an outfit. Join the waitlist." />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="site-nav">
+  <nav class="site-nav-inner" aria-label="Main navigation">
+    <a href="/" class="site-nav-brand">FitCheck AI</a>
+    <ul class="site-nav-links" id="nav-links"></ul>
+  </nav>
+</div>
+
+<div class="page">
+  <header class="site-header">
+    <h1>Studio 3D</h1>
+    <p class="tagline">A 3D view of you in any outfit — coming soon.</p>
+  </header>
+
+  <main>
+    <section class="card studio3d-hero">
+      <h2>What Studio 3D will do</h2>
+      <p>
+        Studio 3D is planned to build a 3D model of you from a few photos, so you
+        can view yourself from any angle wearing an outfit — not just the single
+        preview image Studio generates today. It's in active development and
+        isn't available yet: there's no real 3D generation, viewer, or body model
+        live in the product right now.
+      </p>
+    </section>
+
+    <p id="studio3d-loading" class="inline-loading" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>Checking your account&hellip;</span>
+    </p>
+
+    <section id="studio3d-anon" class="card" hidden aria-labelledby="studio3d-anon-heading">
+      <h2 id="studio3d-anon-heading">Sign up to join the waitlist</h2>
+      <p>Create a free account to be notified when Studio 3D launches.</p>
+      <div class="submit-row">
+        <a href="/signup.html?next=studio3d" class="btn btn-primary">Sign up free</a>
+      </div>
+      <p class="auth-alt-link">Already have an account? <a href="/login.html?next=studio3d">Log in</a></p>
+    </section>
+
+    <section id="studio3d-free" class="card" hidden aria-labelledby="studio3d-free-heading">
+      <h2 id="studio3d-free-heading">Join the waitlist</h2>
+      <p>Leave your email and we'll let you know as soon as Studio 3D is ready to try.</p>
+      <form id="studio3d-waitlist-form" novalidate>
+        <div class="form-field">
+          <label class="field-label" for="studio3d-email">Email</label>
+          <input class="text-input" type="email" id="studio3d-email" name="email" autocomplete="email" required />
+        </div>
+        <p id="studio3d-error" class="field-error" role="alert" hidden></p>
+        <button type="submit" id="studio3d-submit-btn" class="btn btn-primary">Join the waitlist</button>
+      </form>
+      <p id="studio3d-thanks" class="feedback-thanks" role="status" hidden>
+        <span class="thanks-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        You're on the list — we'll email you when Studio 3D launches.
+      </p>
+    </section>
+
+    <section id="studio3d-pro" class="card" hidden aria-labelledby="studio3d-pro-heading">
+      <h2 id="studio3d-pro-heading">You'll be notified when Studio 3D launches</h2>
+      <p>
+        Studio 3D isn't built yet, so there's nothing to unlock in your Pro plan
+        right now — but as a Pro subscriber, you'll be first in line to try it.
+        Confirm your spot on the list below.
+      </p>
+      <p id="studio3d-pro-error" class="field-error" role="alert" hidden></p>
+      <button type="button" id="studio3d-pro-btn" class="btn btn-primary">Notify me when it's ready</button>
+      <p id="studio3d-pro-thanks" class="feedback-thanks" role="status" hidden>
+        <span class="thanks-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        You're on the list — we'll email you at <span id="studio3d-pro-email"></span> when it's ready.
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>FitCheck AI &middot; <a href="/">Home</a> &middot; <a href="/studio.html">Studio</a> &middot; <a href="/pricing.html">Pricing</a></p>
+  </footer>
+</div>
+
+<script src="/nav.js" defer></script>
+<script src="/studio3d.js" defer></script>
+</body>
+</html>

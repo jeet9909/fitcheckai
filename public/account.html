@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Your account — FitCheck AI</title>
+<meta name="description" content="Manage your FitCheck AI account and subscription." />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="site-nav">
+  <nav class="site-nav-inner" aria-label="Main navigation">
+    <a href="/" class="site-nav-brand">FitCheck AI</a>
+    <ul class="site-nav-links" id="nav-links"></ul>
+  </nav>
+</div>
+
+<div class="page">
+  <header class="site-header">
+    <h1>Your account</h1>
+    <p class="tagline">Manage your plan and subscription.</p>
+  </header>
+
+  <main>
+    <section class="card auth-card" aria-labelledby="account-heading">
+      <h2 id="account-heading" class="visually-hidden">Account details</h2>
+
+      <p id="account-loading" class="inline-loading" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Loading your account&hellip;</span>
+      </p>
+
+      <div id="account-content" hidden>
+        <dl class="account-details">
+          <div class="account-detail-row">
+            <dt>Email</dt>
+            <dd id="account-email"></dd>
+          </div>
+          <div class="account-detail-row">
+            <dt>Plan</dt>
+            <dd id="account-plan"></dd>
+          </div>
+        </dl>
+
+        <p id="account-confirming" class="inline-loading" hidden aria-live="polite">
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Confirming your subscription&hellip;</span>
+        </p>
+
+        <div id="account-status-banner" class="banner banner-info" role="status" hidden>
+          <p id="account-status-banner-text"></p>
+        </div>
+
+        <button type="button" id="account-action-btn" class="btn btn-primary" hidden></button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>FitCheck AI &middot; <a href="/">Home</a> &middot; <a href="/studio.html">Studio</a> &middot; <a href="/studio3d.html">Studio 3D</a></p>
+  </footer>
+</div>
+
+<script src="/nav.js" defer></script>
+<script src="/account.js" defer></script>
+</body>
+</html>

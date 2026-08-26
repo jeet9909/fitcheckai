@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pricing — FitCheck AI</title>
+<meta name="description" content="FitCheck AI pricing: a free try-on Studio and a Pro plan with early access to Studio 3D." />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div class="site-nav">
+  <nav class="site-nav-inner" aria-label="Main navigation">
+    <a href="/" class="site-nav-brand">FitCheck AI</a>
+    <ul class="site-nav-links" id="nav-links"></ul>
+  </nav>
+</div>
+
+<div class="page page--wide">
+  <header class="site-header">
+    <h1>Pricing</h1>
+    <p class="tagline">Simple and honest — try it free, upgrade for what's coming next.</p>
+  </header>
+
+  <main>
+    <div class="pricing-grid">
+      <section class="card pricing-card" aria-labelledby="free-plan-heading">
+        <h2 id="free-plan-heading">Free</h2>
+        <p class="pricing-price">$0 &middot; no account needed</p>
+        <ul class="pricing-features">
+          <li>Unlimited try-on generations</li>
+          <li>Upload your photo and any garment photo</li>
+          <li>No signup required to use Studio</li>
+        </ul>
+        <a href="/studio.html" class="btn btn-secondary">Try Studio free</a>
+      </section>
+
+      <section class="card pricing-card pricing-card-pro" aria-labelledby="pro-plan-heading">
+        <h2 id="pro-plan-heading">Pro</h2>
+        <p class="pricing-price">Subscription &middot; test-mode billing</p>
+        <ul class="pricing-features">
+          <li>Everything in Free</li>
+          <li>Early access to Studio 3D — a 3D model of you, viewable from any angle wearing an outfit (in development; join the waitlist)</li>
+          <li>Support ongoing development of FitCheck AI</li>
+        </ul>
+        <p id="pro-plan-status" class="pro-plan-status" hidden>You're on Pro</p>
+        <button type="button" id="pro-cta-btn" class="btn btn-primary" disabled>Loading&hellip;</button>
+        <div id="pricing-billing-banner" class="banner banner-info" role="status" hidden>
+          <p id="pricing-billing-banner-text"></p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p>FitCheck AI &middot; <a href="/">Home</a> &middot; <a href="/studio.html">Studio</a></p>
+  </footer>
+</div>
+
+<script src="/nav.js" defer></script>
+<script src="/pricing.js" defer></script>
+</body>
+</html>

@@ -4,182 +4,71 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FitCheck AI — See it on you before you buy</title>
-<meta name="description" content="Upload your photo and a garment photo to preview how it would look on you." />
-<link rel="stylesheet" href="style.css" />
+<meta name="description" content="Upload your photo and a garment photo to preview how it would look on you — free, no signup required." />
+<link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-<div class="page">
-  <header class="site-header">
-    <h1>FitCheck AI</h1>
-    <p class="tagline">Upload your photo and a garment — see how it looks on you before you buy.</p>
-  </header>
+<div class="site-nav">
+  <nav class="site-nav-inner" aria-label="Main navigation">
+    <a href="/" class="site-nav-brand">FitCheck AI</a>
+    <ul class="site-nav-links" id="nav-links"></ul>
+  </nav>
+</div>
 
+<div class="page page--wide">
   <main>
-    <!-- Status banners: not_configured and error -->
-    <div id="banner-not-configured" class="banner banner-info" role="status" hidden>
-      <p id="banner-not-configured-text"></p>
-    </div>
-
-    <div id="banner-error" class="banner banner-error" role="alert" hidden>
-      <p>Something went wrong generating your preview. Please try again.</p>
-      <button type="button" id="retry-btn" class="btn btn-secondary">Retry</button>
-    </div>
-
-    <section class="upload-section" aria-labelledby="upload-heading">
-      <h2 id="upload-heading" class="visually-hidden">Upload photos</h2>
-
-      <div class="dropzones">
-        <div class="dropzone-group">
-          <label id="person-label" class="dropzone-label" for="person-input">Your photo</label>
-          <div
-            id="person-dropzone"
-            class="dropzone"
-            tabindex="0"
-            role="button"
-            aria-describedby="person-help"
-            aria-labelledby="person-label"
-          >
-            <input
-              type="file"
-              id="person-input"
-              class="visually-hidden"
-              accept="image/jpeg,image/png,image/webp"
-            />
-            <div class="dropzone-content" id="person-dropzone-content">
-              <svg class="upload-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M12 16V4m0 0L7 9m5-5l5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <p>Click or drag &amp; drop your photo</p>
-              <p class="dropzone-hint">JPG, PNG, or WEBP — up to 6MB</p>
-            </div>
-            <img class="dropzone-preview" id="person-preview" alt="Preview of your uploaded photo" decoding="async" hidden />
-            <span class="accept-badge" id="person-accept-badge" aria-hidden="true" hidden>
-              <svg viewBox="0 0 24 24" width="16" height="16" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-          </div>
-          <p id="person-help" class="field-error" role="alert"></p>
-        </div>
-
-        <div class="dropzone-group">
-          <label id="garment-label" class="dropzone-label" for="garment-input">Garment / product photo</label>
-          <div
-            id="garment-dropzone"
-            class="dropzone"
-            tabindex="0"
-            role="button"
-            aria-describedby="garment-help"
-            aria-labelledby="garment-label"
-          >
-            <input
-              type="file"
-              id="garment-input"
-              class="visually-hidden"
-              accept="image/jpeg,image/png,image/webp"
-            />
-            <div class="dropzone-content" id="garment-dropzone-content">
-              <svg class="upload-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M12 16V4m0 0L7 9m5-5l5 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <p>Click or drag &amp; drop the garment photo</p>
-              <p class="dropzone-hint">JPG, PNG, or WEBP — up to 6MB</p>
-            </div>
-            <img class="dropzone-preview" id="garment-preview" alt="Preview of the uploaded garment photo" decoding="async" hidden />
-            <span class="accept-badge" id="garment-accept-badge" aria-hidden="true" hidden>
-              <svg viewBox="0 0 24 24" width="16" height="16" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-          </div>
-          <p id="garment-help" class="field-error" role="alert"></p>
-        </div>
-      </div>
-
-      <p class="privacy-notice">
-        Your photo is only used to generate this preview and isn't stored.
+    <header class="hero">
+      <h1>See it on you before you buy</h1>
+      <p class="hero-subtitle">
+        Upload a photo of yourself and a photo of a garment — FitCheck AI generates a
+        preview of you wearing it, so you can decide before you order.
       </p>
-
-      <div class="submit-row">
-        <button type="button" id="submit-btn" class="btn btn-primary" disabled>
-          Generate my look
-        </button>
+      <div class="hero-actions">
+        <a href="/studio.html" class="btn btn-primary">Try it free — no signup required</a>
+        <a href="/pricing.html" class="btn btn-secondary">See pricing</a>
       </div>
+      <p class="hero-note">Your photo is only used to generate the preview and isn't stored.</p>
+    </header>
 
-      <div id="loading-state" class="loading-state" hidden aria-live="polite">
-        <span class="spinner" aria-hidden="true"></span>
-        <div class="loading-copy">
-          <p id="loading-status-text" class="loading-status-text">Analyzing your photo&hellip;</p>
-          <p class="loading-substatus">This can take up to 30s.</p>
-          <div class="progress-track" aria-hidden="true">
-            <div id="progress-bar" class="progress-bar"></div>
-          </div>
+    <section class="how-it-works" aria-labelledby="how-it-works-heading">
+      <h2 id="how-it-works-heading" class="section-heading">How it works</h2>
+      <div class="steps-grid">
+        <div class="card step-card">
+          <span class="step-number" aria-hidden="true">1</span>
+          <h3>Upload your photo</h3>
+          <p>A clear photo of yourself is all Studio needs to get started.</p>
+        </div>
+        <div class="card step-card">
+          <span class="step-number" aria-hidden="true">2</span>
+          <h3>Upload a garment</h3>
+          <p>Add a photo of the item you're considering — from any store.</p>
+        </div>
+        <div class="card step-card">
+          <span class="step-number" aria-hidden="true">3</span>
+          <h3>See your look</h3>
+          <p>Get an AI-generated preview of you wearing it in under a minute.</p>
         </div>
       </div>
     </section>
 
-    <section id="result-section" class="result-section" aria-labelledby="result-heading" hidden>
-      <h2 id="result-heading" tabindex="-1">Your result</h2>
-      <div class="reveal-stage" id="reveal-stage">
-        <img id="result-image" class="result-image reveal-main" alt="Generated preview of you wearing the selected garment" decoding="async" />
-        <div class="reveal-before-badge" id="reveal-before-badge">
-          <img id="reveal-before" alt="" aria-hidden="true" decoding="async" />
-          <span class="reveal-before-label">Before</span>
-        </div>
+    <section class="card value-prop" aria-labelledby="value-prop-heading">
+      <h2 id="value-prop-heading">Free to try, Pro for what's next</h2>
+      <p>
+        The core try-on preview is free and doesn't require an account. Pro
+        subscribers get early access to Studio 3D — a full 3D model of you,
+        viewable from any angle wearing an outfit — currently in development.
+      </p>
+      <div class="hero-actions">
+        <a href="/pricing.html" class="btn btn-secondary">Compare Free vs Pro</a>
       </div>
-      <div class="result-actions">
-        <a id="download-btn" class="btn btn-secondary" download="fitcheck-result.png">Download</a>
-        <button type="button" id="try-another-btn" class="btn btn-ghost">Try another outfit</button>
-      </div>
-    </section>
-
-    <section id="feedback-section" class="feedback-section" aria-labelledby="feedback-heading" hidden>
-      <h2 id="feedback-heading">Quick feedback</h2>
-      <form id="feedback-form">
-        <fieldset class="feedback-field">
-          <legend>Does this look like you?</legend>
-          <label class="radio-option">
-            <input type="radio" name="looksLikeYou" value="yes" required />
-            <span class="radio-option-text">Yes</span>
-          </label>
-          <label class="radio-option">
-            <input type="radio" name="looksLikeYou" value="no" />
-            <span class="radio-option-text">No</span>
-          </label>
-        </fieldset>
-
-        <fieldset class="feedback-field">
-          <legend>Would this affect your decision to buy?</legend>
-          <label class="radio-option">
-            <input type="radio" name="wouldAffectPurchase" value="yes" required />
-            <span class="radio-option-text">Yes</span>
-          </label>
-          <label class="radio-option">
-            <input type="radio" name="wouldAffectPurchase" value="no" />
-            <span class="radio-option-text">No</span>
-          </label>
-        </fieldset>
-
-        <div class="feedback-field">
-          <label class="field-label" for="feedback-comment">Comments (optional)</label>
-          <textarea id="feedback-comment" name="comment" rows="3" maxlength="2000" placeholder="Anything else you'd like to share?"></textarea>
-        </div>
-
-        <button type="submit" id="feedback-submit-btn" class="btn btn-primary">Submit feedback</button>
-        <p id="feedback-thanks" class="feedback-thanks" role="status" hidden>
-          <span class="thanks-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="14" height="14" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          Thanks for the feedback!
-        </p>
-        <p id="feedback-error" class="field-error" role="alert" hidden>Couldn't send feedback. Please try again.</p>
-      </form>
     </section>
   </main>
 
   <footer class="site-footer">
-    <p>FitCheck AI — a validation prototype. No accounts, no storage of your photos.</p>
+    <p>FitCheck AI — try-on preview powered by AI. <a href="/studio.html">Studio</a> &middot; <a href="/pricing.html">Pricing</a></p>
   </footer>
 </div>
 
-<script src="app.js"></script>
+<script src="/nav.js" defer></script>
 </body>
 </html>
