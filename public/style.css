@@ -465,6 +465,13 @@ body {
   margin-top: 0;
 }
 
+#result-heading:focus-visible,
+#result-heading:focus {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
 .reveal-stage {
   position: relative;
   display: inline-block;
@@ -670,10 +677,6 @@ textarea:focus-visible {
   100% {
     transform: scale(1);
   }
-}
-
-#feedback-form:has(fieldset:disabled) {
-  opacity: 0.7;
 }
 
 @media (max-width: 480px) {

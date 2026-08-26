@@ -20,6 +20,12 @@ interface TryOnRequestBody {
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_DECODED_BYTES = 6 * 1024 * 1024; // ~6MB
+// Two base64-encoded images (roughly 4/3 expansion of MAX_DECODED_BYTES each)
+// plus a small amount of JSON overhead. Checked against Content-Length (when
+// present) before the body is buffered/parsed, so a hostile client cannot force
+// a large allocation just to get rejected by the per-field size check further
+// down.
+const MAX_REQUEST_BODY_BYTES = 20 * 1024 * 1024; // ~20MB
 const GEMINI_TIMEOUT_MS = 30_000;
 const GEMINI_MODEL = "gemini-2.5-flash-image";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -113,6 +119,31 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     });
   }
 
+  // Reject obviously oversized bodies before buffering/parsing them. This is a
+  // cheap defense-in-depth check (Content-Length can be absent or spoofed for
+  // chunked requests, so it is not a substitute for the per-field size validation
+  // below) that avoids paying JSON-parse cost for payloads that can never pass
+  // validation anyway.
+  const contentLengthHeader = request.headers.get("content-length");
+  if (contentLengthHeader) {
+    const declaredLength = Number(contentLengthHeader);
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
+      console.log(
+        JSON.stringify({
+          route: "/api/tryon",
+          status: "invalid_request",
+          reason: "body_too_large",
+          declaredLength,
+          elapsedMs: Date.now() - startedAt,
+        })
+      );
+      return jsonResponse(413, {
+        status: "invalid_request",
+        message: "Request body is too large.",
+      });
+    }
+  }
+
   // Step 2: parse + validate the request body.
   let body: TryOnRequestBody;
   try {
@@ -183,9 +214,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   let geminiResponse: Response;
   try {
-    geminiResponse = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    geminiResponse = await fetch(GEMINI_URL, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify(geminiPayload),
       signal: controller.signal,
     });
@@ -284,7 +318,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   return jsonResponse(200, {
     status: "ok",
     image: {
-      mimeType: "image/png",
+      mimeType: imagePart.inlineData.mimeType ?? "image/png",
       data: imagePart.inlineData.data,
     },
   });

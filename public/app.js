@@ -4,7 +4,7 @@
   // ---------- Constants ----------
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   const MAX_FILE_BYTES = 6 * 1024 * 1024; // 6MB
-  const REQUEST_TIMEOUT_MS = 35000; // slightly longer than the server's 30s budget
+  const REQUEST_TIMEOUT_MS = 45000; // server budget is 30s; extra headroom for slow networks carrying ~16MB of base64 payload round-trip
   const NOT_CONFIGURED_DEFAULT_MESSAGE =
     "AI provider isn't configured yet — this demo can't generate a live preview until the API key is added.";
   // Purely presentational copy shown while waiting on /api/tryon — cycles on a timer.
@@ -44,6 +44,7 @@
   const retryBtn = document.getElementById('retry-btn');
 
   const resultSection = document.getElementById('result-section');
+  const resultHeading = document.getElementById('result-heading');
   const resultImage = document.getElementById('result-image');
   const downloadBtn = document.getElementById('download-btn');
   const tryAnotherBtn = document.getElementById('try-another-btn');
@@ -242,6 +243,13 @@
   async function onSubmit() {
     if (!personImage || !garmentImage || phase === 'loading') return;
 
+    // Snapshot the exact images used for this request. `personImage`/`garmentImage`
+    // are reassigned (not mutated) by handleFile, so these references stay stable
+    // even if the user swaps a photo while the request is in flight — this keeps
+    // the "before" reveal image in sync with what was actually sent to the server.
+    const requestPersonImage = personImage;
+    const requestGarmentImage = garmentImage;
+
     phase = 'loading';
     render();
     startLoadingAnimation();
@@ -254,8 +262,8 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          personImage: { mimeType: personImage.mimeType, data: personImage.data },
-          garmentImage: { mimeType: garmentImage.mimeType, data: garmentImage.data },
+          personImage: { mimeType: requestPersonImage.mimeType, data: requestPersonImage.data },
+          garmentImage: { mimeType: requestGarmentImage.mimeType, data: requestGarmentImage.data },
         }),
         signal: controller.signal,
       });
@@ -271,7 +279,7 @@
         return;
       }
 
-      handleTryonResponse(json);
+      handleTryonResponse(json, requestPersonImage);
     } catch (err) {
       if (err && err.name === 'AbortError') {
         console.error('tryon request timed out after', REQUEST_TIMEOUT_MS, 'ms');
@@ -286,8 +294,8 @@
     }
   }
 
-  function triggerReveal() {
-    revealBeforeImg.src = personImage ? personImage.dataUrl : '';
+  function triggerReveal(personImageSnapshot) {
+    revealBeforeImg.src = personImageSnapshot ? personImageSnapshot.dataUrl : '';
     revealStage.classList.remove('revealed', 'badge-visible');
     // Force reflow so the reveal can replay on a second/third generation this session.
     void revealStage.offsetWidth;
@@ -301,7 +309,7 @@
     });
   }
 
-  function handleTryonResponse(json) {
+  function handleTryonResponse(json, requestPersonImage) {
     const status = json && json.status;
     stopLoadingAnimation(status === 'ok');
 
@@ -315,8 +323,12 @@
         downloadBtn.setAttribute('download', `fitcheck-result.${ext}`);
         phase = 'success';
         render();
-        triggerReveal();
+        triggerReveal(requestPersonImage);
         prepareFeedbackFormForResult();
+        // Give assistive tech an explicit completion cue: move focus to the
+        // result heading so it's announced, since the loading region has
+        // already been hidden and has nothing left to announce.
+        resultHeading.focus();
         break;
       }
       case 'not_configured':
@@ -337,7 +349,12 @@
   submitBtn.addEventListener('click', onSubmit);
 
   retryBtn.addEventListener('click', () => {
-    setPhaseFromImages();
+    // Retry should actually retry the request, not just dismiss the error.
+    if (personImage && garmentImage) {
+      onSubmit();
+    } else {
+      setPhaseFromImages();
+    }
   });
 
   // Lets the user explore another garment on the same person photo without a
@@ -386,13 +403,12 @@
     }
   });
 
+  // Each new successful generation gets its own fresh feedback opportunity —
+  // the "one submission" guard is scoped to a single result, not the whole
+  // page session, since this feedback signal is the core thing the MVP
+  // exists to measure and must not silently stop collecting after result #1.
   function prepareFeedbackFormForResult() {
-    if (feedbackSubmitted) {
-      setFeedbackControlsDisabled(true);
-      feedbackThanks.hidden = false;
-      feedbackError.hidden = true;
-      return;
-    }
+    feedbackSubmitted = false;
     feedbackForm.reset();
     feedbackForm.querySelectorAll('.radio-option').forEach((label) => {
       label.classList.remove('selected', 'pop');

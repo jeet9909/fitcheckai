@@ -14,6 +14,11 @@ interface FeedbackRequestBody {
 }
 
 const MAX_COMMENT_LENGTH = 2000;
+// The whole request body (two booleans, a short comment, an ISO timestamp) is
+// only ever a few KB. Reject anything wildly larger before buffering/parsing it,
+// as cheap defense-in-depth against a client sending an oversized body to this
+// endpoint.
+const MAX_REQUEST_BODY_BYTES = 32 * 1024; // 32KB
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -29,6 +34,17 @@ function isValidTimestamp(value: string): boolean {
 
 export const onRequestPost: PagesFunction = async (context) => {
   const { request } = context;
+
+  const contentLengthHeader = request.headers.get("content-length");
+  if (contentLengthHeader) {
+    const declaredLength = Number(contentLengthHeader);
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
+      return jsonResponse(413, {
+        status: "invalid_request",
+        message: "Request body is too large.",
+      });
+    }
+  }
 
   let body: FeedbackRequestBody;
   try {

@@ -53,7 +53,7 @@
               <p>Click or drag &amp; drop your photo</p>
               <p class="dropzone-hint">JPG, PNG, or WEBP — up to 6MB</p>
             </div>
-            <img class="dropzone-preview" id="person-preview" alt="Preview of your uploaded photo" hidden />
+            <img class="dropzone-preview" id="person-preview" alt="Preview of your uploaded photo" decoding="async" hidden />
             <span class="accept-badge" id="person-accept-badge" aria-hidden="true" hidden>
               <svg viewBox="0 0 24 24" width="16" height="16" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
@@ -85,7 +85,7 @@
               <p>Click or drag &amp; drop the garment photo</p>
               <p class="dropzone-hint">JPG, PNG, or WEBP — up to 6MB</p>
             </div>
-            <img class="dropzone-preview" id="garment-preview" alt="Preview of the uploaded garment photo" hidden />
+            <img class="dropzone-preview" id="garment-preview" alt="Preview of the uploaded garment photo" decoding="async" hidden />
             <span class="accept-badge" id="garment-accept-badge" aria-hidden="true" hidden>
               <svg viewBox="0 0 24 24" width="16" height="16" focusable="false"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
@@ -117,11 +117,11 @@
     </section>
 
     <section id="result-section" class="result-section" aria-labelledby="result-heading" hidden>
-      <h2 id="result-heading">Your result</h2>
+      <h2 id="result-heading" tabindex="-1">Your result</h2>
       <div class="reveal-stage" id="reveal-stage">
-        <img id="result-image" class="result-image reveal-main" alt="Generated preview of you wearing the selected garment" />
+        <img id="result-image" class="result-image reveal-main" alt="Generated preview of you wearing the selected garment" decoding="async" />
         <div class="reveal-before-badge" id="reveal-before-badge">
-          <img id="reveal-before" alt="" aria-hidden="true" />
+          <img id="reveal-before" alt="" aria-hidden="true" decoding="async" />
           <span class="reveal-before-label">Before</span>
         </div>
       </div>
@@ -160,7 +160,7 @@
 
         <div class="feedback-field">
           <label class="field-label" for="feedback-comment">Comments (optional)</label>
-          <textarea id="feedback-comment" name="comment" rows="3" maxlength="1000" placeholder="Anything else you'd like to share?"></textarea>
+          <textarea id="feedback-comment" name="comment" rows="3" maxlength="2000" placeholder="Anything else you'd like to share?"></textarea>
         </div>
 
         <button type="submit" id="feedback-submit-btn" class="btn btn-primary">Submit feedback</button>
