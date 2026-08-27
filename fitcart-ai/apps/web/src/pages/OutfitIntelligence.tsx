@@ -4,8 +4,8 @@ import { useAppState } from '../state/AppState';
 
 export default function OutfitIntelligence() {
   const navigate = useNavigate();
-  const { outfit } = useAppState();
-  const outfitScore = computeOutfitScore(outfit);
+  const { products, outfit } = useAppState();
+  const outfitScore = computeOutfitScore(outfit, products);
 
   return (
     <main style={{ maxWidth: 760, margin: '0 auto', padding: '32px 28px 100px' }}>

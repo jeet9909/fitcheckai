@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PRODUCTS, SLOT_LABELS, SLOT_ORDER, type Slot } from '../data/products';
+import { SLOT_LABELS, SLOT_ORDER, type Slot } from '../data/products';
 import { computeOutfitScore } from '../lib/outfitScore';
 import { useAppState } from '../state/AppState';
 import Placeholder from '../components/Placeholder';
@@ -14,15 +14,15 @@ const ANGLES: { key: string; label: string }[] = [
 
 export default function TryOnStudio() {
   const navigate = useNavigate();
-  const { outfit, addToCart, showToast } = useAppState();
+  const { products, outfit, addToCart, showToast } = useAppState();
   const [angle, setAngle] = useState('front');
   const [fitSlot, setFitSlot] = useState<Slot>('top');
 
-  const outfitScore = computeOutfitScore(outfit);
+  const outfitScore = computeOutfitScore(outfit, products);
 
   const filledSlots = SLOT_ORDER.filter((slot) => outfit[slot]);
   const targetSlot = filledSlots.includes(fitSlot) ? fitSlot : filledSlots[0];
-  const tryOnFitTarget = targetSlot ? { slot: targetSlot, label: SLOT_LABELS[targetSlot], product: PRODUCTS.find((p) => p.id === outfit[targetSlot])! } : null;
+  const tryOnFitTarget = targetSlot ? { slot: targetSlot, label: SLOT_LABELS[targetSlot], product: products.find((p) => p.id === outfit[targetSlot])! } : null;
 
   const handleAddOutfitToCart = () => {
     const ids = SLOT_ORDER.map((slot) => outfit[slot]).filter((id): id is number => Boolean(id));
@@ -43,7 +43,7 @@ export default function TryOnStudio() {
           {SLOT_ORDER.map((slot) => {
             const productId = outfit[slot];
             if (!productId) return null;
-            const product = PRODUCTS.find((p) => p.id === productId)!;
+            const product = products.find((p) => p.id === productId)!;
             return (
               <div key={slot} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 8, display: 'flex', gap: 9, alignItems: 'center' }}>
                 <ProductImage product={product} ratio="1/1" radius={6} style={{ width: 40, height: 40, flex: 'none' }} />

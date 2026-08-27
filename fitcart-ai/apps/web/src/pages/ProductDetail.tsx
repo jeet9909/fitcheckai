@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { PRODUCTS } from '../data/products';
 import { discountLabel, fmt, confidenceBand, toneColor } from '../lib/format';
 import { useAppState } from '../state/AppState';
 import ProductImage from '../components/ProductImage';
@@ -11,10 +10,13 @@ const SIZES = ['S', 'M', 'L', 'XL'];
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { savedProductIds, compareIds, toggleSave, toggleCompare, addToOutfit } = useAppState();
+  const { products, savedProductIds, compareIds, toggleSave, toggleCompare, addToOutfit } = useAppState();
   const [selectedSize, setSelectedSize] = useState('M');
 
-  const product = PRODUCTS.find((p) => p.id === Number(id)) ?? PRODUCTS[0];
+  const product = products.find((p) => p.id === Number(id));
+  if (!product) {
+    return <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 28px 80px' }} />;
+  }
   const isSaved = savedProductIds.includes(product.id);
   const isCompared = compareIds.includes(product.id);
   const band = confidenceBand(product.confidence);

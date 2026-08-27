@@ -1,13 +1,12 @@
 import { useNavigate } from 'react-router-dom';
-import { PRODUCTS } from '../data/products';
 import { fitColor, fmt } from '../lib/format';
 import { useAppState } from '../state/AppState';
 import ProductImage from '../components/ProductImage';
 
 export default function Compare() {
   const navigate = useNavigate();
-  const { compareIds, toggleCompare, addToCart } = useAppState();
-  const compareProducts = compareIds.map((id) => PRODUCTS.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const { products, compareIds, toggleCompare, addToCart } = useAppState();
+  const compareProducts = compareIds.map((id) => products.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   return (
     <main style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 28px 100px' }}>

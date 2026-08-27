@@ -1,5 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { PRODUCTS, type Slot } from '../data/products';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { Product, Slot } from '../data/products';
+import {
+  addToCartApi, deleteProfileApi, fetchProducts, fetchState, removeFromCartApi, resetFeedbackApi,
+  setOutfitSlotApi, setTierApi, setupProfileApi, toggleCompareApi, toggleConsentApi, toggleSavedApi,
+  updateFeedbackApi, type ApiState,
+} from '../lib/api';
 
 export interface CartLine {
   productId: number;
@@ -13,7 +18,11 @@ export interface Consent {
 
 export type OutfitState = Record<Slot, number | null>;
 
+const EMPTY_OUTFIT: OutfitState = { top: null, bottom: null, shoes: null, watch: null, accessory: null };
+
 export interface AppStateValue {
+  ready: boolean;
+  products: Product[];
   cartItems: CartLine[];
   savedProductIds: number[];
   compareIds: number[];
@@ -36,7 +45,7 @@ export interface AppStateValue {
   selectForSlot: (slot: Slot, id: number) => void;
   toggleConsent: (key: keyof Consent) => void;
   addToCart: (id: number) => void;
-  removeFromCart: (idx: number) => void;
+  removeFromCart: (productId: number) => void;
   setTier: (t: string) => void;
   deleteBodyData: () => void;
   setFeedbackChoice: (choice: string) => void;
@@ -48,11 +57,37 @@ export interface AppStateValue {
 
 const AppStateContext = createContext<AppStateValue | null>(null);
 
+function applyApiState(s: ApiState, setters: {
+  setCartItems: (v: CartLine[]) => void;
+  setSavedProductIds: (v: number[]) => void;
+  setCompareIds: (v: number[]) => void;
+  setOutfit: (v: OutfitState) => void;
+  setConsent: (v: Consent) => void;
+  setProfileSetupDone: (v: boolean) => void;
+  setTierState: (v: string) => void;
+  setFeedbackChoiceState: (v: string | null) => void;
+  setFeedbackNoteState: (v: string) => void;
+  setFeedbackSubmitted: (v: boolean) => void;
+}) {
+  setters.setCartItems(s.cartItems);
+  setters.setSavedProductIds(s.savedProductIds);
+  setters.setCompareIds(s.compareIds);
+  setters.setOutfit({ ...EMPTY_OUTFIT, ...s.outfit });
+  setters.setConsent(s.consent);
+  setters.setProfileSetupDone(s.profileSetupDone);
+  setters.setTierState(s.tier);
+  setters.setFeedbackChoiceState(s.feedbackChoice);
+  setters.setFeedbackNoteState(s.feedbackNote);
+  setters.setFeedbackSubmitted(s.feedbackSubmitted);
+}
+
 export function AppStateProvider({ children }: { children: ReactNode }) {
-  const [cartItems, setCartItems] = useState<CartLine[]>([{ productId: 7, qty: 1 }]);
-  const [savedProductIds, setSavedProductIds] = useState<number[]>([10]);
-  const [compareIds, setCompareIds] = useState<number[]>([3, 8]);
-  const [outfit, setOutfit] = useState<OutfitState>({ top: 1, bottom: null, shoes: 3, watch: null, accessory: null });
+  const [ready, setReady] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cartItems, setCartItems] = useState<CartLine[]>([]);
+  const [savedProductIds, setSavedProductIds] = useState<number[]>([]);
+  const [compareIds, setCompareIds] = useState<number[]>([]);
+  const [outfit, setOutfit] = useState<OutfitState>(EMPTY_OUTFIT);
   const [consent, setConsent] = useState<Consent>({ photos: false, sharing: false });
   const [profileSetupDone, setProfileSetupDone] = useState(false);
   const [tier, setTierState] = useState('style');
@@ -63,6 +98,27 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
 
+  const applyState = useCallback((s: ApiState) => {
+    applyApiState(s, {
+      setCartItems, setSavedProductIds, setCompareIds, setOutfit, setConsent,
+      setProfileSetupDone, setTierState, setFeedbackChoiceState, setFeedbackNoteState, setFeedbackSubmitted,
+    });
+    if (s.error) showToast(s.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    Promise.all([fetchProducts(), fetchState()]).then(([p, s]) => {
+      setProducts(p);
+      applyState(s);
+      setReady(true);
+    }).catch(() => {
+      setReady(true);
+      showToast('Could not reach the server — try refreshing');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const showToast = useCallback((msg: string) => {
     window.clearTimeout(toastTimer.current);
     setToast(msg);
@@ -70,87 +126,92 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleSave = useCallback((id: number) => {
-    setSavedProductIds((prev) => {
-      const has = prev.includes(id);
-      showToast(has ? 'Removed from saved' : 'Saved for later');
-      return has ? prev.filter((x) => x !== id) : [...prev, id];
-    });
-  }, [showToast]);
+    const has = savedProductIds.includes(id);
+    showToast(has ? 'Removed from saved' : 'Saved for later');
+    toggleSavedApi(id).then(applyState);
+  }, [savedProductIds, showToast, applyState]);
 
   const toggleCompare = useCallback((id: number) => {
-    setCompareIds((prev) => {
-      const has = prev.includes(id);
-      if (!has && prev.length >= 3) {
-        showToast('Compare up to 3 items at a time');
-        return prev;
-      }
-      showToast(has ? 'Removed from compare' : 'Added to compare');
-      return has ? prev.filter((x) => x !== id) : [...prev, id];
-    });
-  }, [showToast]);
+    const has = compareIds.includes(id);
+    if (!has && compareIds.length >= 3) {
+      showToast('Compare up to 3 items at a time');
+      return;
+    }
+    showToast(has ? 'Removed from compare' : 'Added to compare');
+    toggleCompareApi(id).then(applyState);
+  }, [compareIds, showToast, applyState]);
 
   const addToOutfit = useCallback((id: number) => {
-    const p = PRODUCTS.find((x) => x.id === id);
+    const p = products.find((x) => x.id === id);
     if (!p) return;
-    setOutfit((prev) => ({ ...prev, [p.slot]: id }));
     showToast(p.name + ' added to outfit');
-  }, [showToast]);
+    setOutfitSlotApi(p.slot, id).then(applyState);
+  }, [products, showToast, applyState]);
 
   const removeFromSlot = useCallback((slot: Slot) => {
-    setOutfit((prev) => ({ ...prev, [slot]: null }));
-  }, []);
+    setOutfitSlotApi(slot, null).then(applyState);
+  }, [applyState]);
 
   const selectForSlot = useCallback((slot: Slot, id: number) => {
-    setOutfit((prev) => ({ ...prev, [slot]: id }));
-  }, []);
+    setOutfitSlotApi(slot, id).then(applyState);
+  }, [applyState]);
 
   const toggleConsent = useCallback((key: keyof Consent) => {
-    setConsent((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+    toggleConsentApi(key).then(applyState);
+  }, [applyState]);
 
   const addToCart = useCallback((id: number) => {
-    setCartItems((prev) => {
-      if (prev.some((c) => c.productId === id)) {
-        showToast('Already in cart');
-        return prev;
-      }
-      showToast('Added to cart');
-      return [...prev, { productId: id, qty: 1 }];
-    });
-  }, [showToast]);
+    if (cartItems.some((c) => c.productId === id)) {
+      showToast('Already in cart');
+      return;
+    }
+    showToast('Added to cart');
+    addToCartApi(id).then(applyState);
+  }, [cartItems, showToast, applyState]);
 
-  const removeFromCart = useCallback((idx: number) => {
-    setCartItems((prev) => prev.filter((_, i) => i !== idx));
-  }, []);
+  const removeFromCart = useCallback((productId: number) => {
+    removeFromCartApi(productId).then(applyState);
+  }, [applyState]);
 
   const setTier = useCallback((t: string) => {
-    setTierState(t);
     showToast('Plan updated to ' + t.charAt(0).toUpperCase() + t.slice(1));
-  }, [showToast]);
+    setTierApi(t).then(applyState);
+  }, [showToast, applyState]);
 
   const deleteBodyData = useCallback(() => {
-    setProfileSetupDone(false);
-    setConsent({ photos: false, sharing: false });
     showToast('Body data deleted');
-  }, [showToast]);
+    deleteProfileApi().then(applyState);
+  }, [showToast, applyState]);
 
-  const setFeedbackChoice = useCallback((choice: string) => setFeedbackChoiceState(choice), []);
-  const setFeedbackNote = useCallback((note: string) => setFeedbackNoteState(note), []);
-  const submitFeedback = useCallback(() => setFeedbackSubmitted(true), []);
-  const resetFeedback = useCallback(() => {
-    setFeedbackChoiceState(null);
-    setFeedbackNoteState('');
-    setFeedbackSubmitted(false);
+  const setFeedbackChoice = useCallback((choice: string) => {
+    setFeedbackChoiceState(choice);
+    updateFeedbackApi({ choice }).then(applyState);
+  }, [applyState]);
+
+  const setFeedbackNote = useCallback((note: string) => {
+    setFeedbackNoteState(note);
+    updateFeedbackApi({ note }).catch(() => {});
   }, []);
-  const markProfileSetupDone = useCallback(() => setProfileSetupDone(true), []);
+
+  const submitFeedback = useCallback(() => {
+    updateFeedbackApi({ note: feedbackNote, submit: true }).then(applyState);
+  }, [feedbackNote, applyState]);
+
+  const resetFeedback = useCallback(() => {
+    resetFeedbackApi().then(applyState);
+  }, [applyState]);
+
+  const markProfileSetupDone = useCallback(() => {
+    setupProfileApi().then(applyState);
+  }, [applyState]);
 
   const value = useMemo<AppStateValue>(() => ({
-    cartItems, savedProductIds, compareIds, outfit, consent, profileSetupDone, tier,
+    ready, products, cartItems, savedProductIds, compareIds, outfit, consent, profileSetupDone, tier,
     feedbackChoice, feedbackNote, feedbackSubmitted, toast, searchQuery,
     setSearchQuery, showToast, toggleSave, toggleCompare, addToOutfit, removeFromSlot, selectForSlot,
     toggleConsent, addToCart, removeFromCart, setTier, deleteBodyData,
     setFeedbackChoice, setFeedbackNote, submitFeedback, resetFeedback, markProfileSetupDone,
-  }), [cartItems, savedProductIds, compareIds, outfit, consent, profileSetupDone, tier,
+  }), [ready, products, cartItems, savedProductIds, compareIds, outfit, consent, profileSetupDone, tier,
     feedbackChoice, feedbackNote, feedbackSubmitted, toast, searchQuery, showToast, toggleSave, toggleCompare,
     addToOutfit, removeFromSlot, selectForSlot, toggleConsent, addToCart, removeFromCart, setTier,
     deleteBodyData, setFeedbackChoice, setFeedbackNote, submitFeedback, resetFeedback, markProfileSetupDone]);

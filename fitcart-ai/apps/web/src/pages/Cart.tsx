@@ -1,19 +1,18 @@
 import { useNavigate } from 'react-router-dom';
-import { PRODUCTS } from '../data/products';
 import { fitBg, fitColor, fmt } from '../lib/format';
 import { useAppState } from '../state/AppState';
 import ProductImage from '../components/ProductImage';
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { cartItems, removeFromCart } = useAppState();
+  const { products, cartItems, removeFromCart } = useAppState();
 
   const lines = cartItems
-    .map((c, idx) => {
-      const product = PRODUCTS.find((p) => p.id === c.productId);
-      return product ? { idx, qty: c.qty, product } : null;
+    .map((c) => {
+      const product = products.find((p) => p.id === c.productId);
+      return product ? { qty: c.qty, product } : null;
     })
-    .filter((l): l is { idx: number; qty: number; product: NonNullable<ReturnType<typeof PRODUCTS.find>> } => Boolean(l));
+    .filter((l): l is { qty: number; product: NonNullable<ReturnType<typeof products.find>> } => Boolean(l));
 
   const total = fmt(lines.reduce((a, c) => a + c.product.price * c.qty, 0));
 
@@ -28,7 +27,7 @@ export default function Cart() {
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
         {lines.map((c) => (
-          <div key={c.idx} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 16, display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div key={c.product.id} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 16, display: 'flex', gap: 16, alignItems: 'center' }}>
             <ProductImage product={c.product} ratio="1/1" radius={10} style={{ width: 76, height: 76, flex: 'none' }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{c.product.store}</div>
@@ -40,8 +39,8 @@ export default function Cart() {
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{fmt(c.product.price)}</div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => removeFromCart(c.idx)} style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', fontSize: 12, padding: 0 }}>Remove</button>
-                <button onClick={() => navigate('/handoff', { state: { cartIdx: c.idx } })} style={{ background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 7 }}>Checkout at {c.product.store}</button>
+                <button onClick={() => removeFromCart(c.product.id)} style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', fontSize: 12, padding: 0 }}>Remove</button>
+                <button onClick={() => navigate('/handoff', { state: { productId: c.product.id } })} style={{ background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 7 }}>Checkout at {c.product.store}</button>
               </div>
             </div>
           </div>

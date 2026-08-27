@@ -1,0 +1,8 @@
+name = "fitcart-ai"
+pages_build_output_dir = "dist"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fitcart-ai-db"
+database_id = "ae42dcda-a051-481f-9f4e-31f9f255f28a"

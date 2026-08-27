@@ -1,4 +1,4 @@
-import { PRODUCTS, SLOT_ORDER } from '../data/products';
+import { SLOT_ORDER, type Product } from '../data/products';
 import type { OutfitState } from '../state/AppState';
 
 export interface OutfitScore {
@@ -9,16 +9,16 @@ export interface OutfitScore {
   why: string;
 }
 
-export function computeOutfitScore(outfit: OutfitState): OutfitScore | null {
+export function computeOutfitScore(outfit: OutfitState, products: Product[]): OutfitScore | null {
   const filled = SLOT_ORDER
-    .map((slot) => (outfit[slot] ? PRODUCTS.find((p) => p.id === outfit[slot]) : null))
+    .map((slot) => (outfit[slot] ? products.find((p) => p.id === outfit[slot]) : null))
     .filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   if (filled.length < 2) return null;
 
   const avgFit = Math.round(filled.reduce((a, p) => a + p.fitScore, 0) / filled.length);
-  const topProduct = outfit.top ? PRODUCTS.find((p) => p.id === outfit.top) : null;
-  const shoesProduct = outfit.shoes ? PRODUCTS.find((p) => p.id === outfit.shoes) : null;
+  const topProduct = outfit.top ? products.find((p) => p.id === outfit.top) : null;
+  const shoesProduct = outfit.shoes ? products.find((p) => p.id === outfit.shoes) : null;
 
   return {
     overall: Math.min(97, avgFit + 4),

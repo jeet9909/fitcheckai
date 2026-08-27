@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PRODUCTS, SLOT_LABELS, SLOT_ORDER, type Slot } from '../data/products';
+import { SLOT_LABELS, SLOT_ORDER, type Slot } from '../data/products';
 import { fmt } from '../lib/format';
 import { computeOutfitScore } from '../lib/outfitScore';
 import { useAppState } from '../state/AppState';
@@ -7,12 +7,12 @@ import { useStartTryOn } from '../lib/useStartTryOn';
 import ProductImage from '../components/ProductImage';
 
 export default function OutfitStudio() {
-  const { outfit, removeFromSlot, selectForSlot } = useAppState();
+  const { products, outfit, removeFromSlot, selectForSlot } = useAppState();
   const [pickingSlot, setPickingSlot] = useState<Slot | null>(null);
   const startTryOnFlow = useStartTryOn();
 
-  const outfitScore = computeOutfitScore(outfit);
-  const pickerProducts = pickingSlot ? PRODUCTS.filter((p) => p.slot === pickingSlot) : [];
+  const outfitScore = computeOutfitScore(outfit, products);
+  const pickerProducts = pickingSlot ? products.filter((p) => p.slot === pickingSlot) : [];
 
   return (
     <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 28px 100px' }}>
@@ -22,7 +22,7 @@ export default function OutfitStudio() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16 }}>
           {SLOT_ORDER.map((slotKey) => {
             const productId = outfit[slotKey];
-            const product = productId ? PRODUCTS.find((p) => p.id === productId) : null;
+            const product = productId ? products.find((p) => p.id === productId) : null;
             const label = SLOT_LABELS[slotKey];
             return (
               <div key={slotKey} style={{ border: '1px dashed var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)' }}>

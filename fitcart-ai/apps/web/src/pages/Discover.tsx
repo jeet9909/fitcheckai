@@ -1,21 +1,21 @@
 import { useMemo, useState } from 'react';
-import { BUCKETS, PRODUCTS, STORES } from '../data/products';
+import { BUCKETS, STORES } from '../data/products';
 import { useAppState } from '../state/AppState';
 import ProductCard from '../components/ProductCard';
 
 export default function Discover() {
-  const { searchQuery } = useAppState();
+  const { products, searchQuery } = useAppState();
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [storeFilter, setStoreFilter] = useState('All');
 
   const filteredProducts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return PRODUCTS.filter((p) =>
+    return products.filter((p) =>
       (categoryFilter === 'All' || p.bucket === categoryFilter) &&
       (storeFilter === 'All' || p.store === storeFilter) &&
       (!q || (p.name + ' ' + p.brand + ' ' + p.category).toLowerCase().includes(q))
     );
-  }, [searchQuery, categoryFilter, storeFilter]);
+  }, [products, searchQuery, categoryFilter, storeFilter]);
 
   return (
     <main style={{ maxWidth: 1360, margin: '0 auto', padding: '32px 28px 80px' }}>

@@ -1,16 +1,19 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PRODUCTS, SLOT_ORDER } from '../data/products';
+import { SLOT_ORDER } from '../data/products';
 import { confidenceBand, recommendation, toneBg, toneColor } from '../lib/format';
 import { useAppState } from '../state/AppState';
 
 export default function FitIntelligence() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { outfit } = useAppState();
+  const { products, outfit } = useAppState();
 
   const stateProductId = (location.state as { productId?: number } | null)?.productId;
   const firstOutfitProductId = SLOT_ORDER.map((s) => outfit[s]).find((id) => id) ?? null;
-  const product = PRODUCTS.find((p) => p.id === (stateProductId ?? firstOutfitProductId)) ?? PRODUCTS[0];
+  const product = products.find((p) => p.id === (stateProductId ?? firstOutfitProductId)) ?? products[0];
+  if (!product) {
+    return <main style={{ maxWidth: 760, margin: '0 auto', padding: '32px 28px 100px' }} />;
+  }
   const band = confidenceBand(product.confidence);
 
   return (

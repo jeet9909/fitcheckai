@@ -1,16 +1,15 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PRODUCTS } from '../data/products';
 import { fmt } from '../lib/format';
 import { useAppState } from '../state/AppState';
 
 export default function Handoff() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cartItems, resetFeedback } = useAppState();
+  const { products, cartItems, resetFeedback } = useAppState();
 
-  const stateIdx = (location.state as { cartIdx?: number } | null)?.cartIdx;
-  const line = (stateIdx !== undefined ? cartItems[stateIdx] : undefined) ?? cartItems[0];
-  const product = line ? PRODUCTS.find((p) => p.id === line.productId) : null;
+  const stateProductId = (location.state as { productId?: number } | null)?.productId;
+  const line = cartItems.find((c) => c.productId === stateProductId) ?? cartItems[0];
+  const product = line ? products.find((p) => p.id === line.productId) : null;
 
   const simulateReturn = () => {
     resetFeedback();
