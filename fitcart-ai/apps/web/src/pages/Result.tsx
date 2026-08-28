@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import PaywallSheet from '../components/PaywallSheet';
 import Placeholder from '../components/Placeholder';
 import { useAppState } from '../state/AppState';
+import { useAuth } from '../state/AuthState';
+import { supabase } from '../lib/supabase';
 import { hasFreeRendersLeft, recordRenderUsed, rendersRemaining } from '../lib/renderGate';
+import { startCheckout } from '../lib/checkout';
 
 /**
  * THE AHA. One garment, one body, one plain-language verdict.
@@ -15,6 +18,7 @@ import { hasFreeRendersLeft, recordRenderUsed, rendersRemaining } from '../lib/r
 export default function Result() {
   const navigate = useNavigate();
   const { showToast } = useAppState();
+  const { user } = useAuth();
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   // Mock verdict — replace with the real API response.
@@ -46,10 +50,20 @@ export default function Result() {
     }
   };
 
-  const handleSave = () => {
-    // TODO(backend): phone-OTP modal, per board K.4 — the ONLY auth surface
-    // in the product. Fires here and on the paywall, nowhere else.
-    showToast('Save (phone verification) — coming with the account system');
+  const handleSave = async () => {
+    if (!user) {
+      navigate('/auth?redirect=/result');
+      return;
+    }
+    if (!supabase) {
+      showToast('Save isn’t connected yet — backend coming soon');
+      return;
+    }
+    const { error } = await supabase.from('saved_looks').insert({
+      user_id: user.id,
+      verdict,
+    });
+    showToast(error ? 'Could not save — try again' : 'Saved to My Looks');
   };
 
   const handleBuy = () => {
@@ -104,10 +118,13 @@ export default function Result() {
       <PaywallSheet
         open={paywallOpen}
         onClose={() => setPaywallOpen(false)}
-        onChoosePlan={(plan) => {
-          // TODO(backend): Razorpay UPI checkout per board D/G, week 3.
-          showToast(`Starting checkout for the ${plan} plan…`);
+        onChoosePlan={async (plan) => {
+          if (!user) {
+            navigate('/auth?redirect=/result');
+            return;
+          }
           setPaywallOpen(false);
+          await startCheckout(plan, showToast);
         }}
       />
     </main>

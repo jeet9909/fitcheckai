@@ -9,6 +9,8 @@ import Result from './pages/Result';
 import Saved from './pages/Saved';
 import Profile from './pages/Profile';
 import Privacy from './pages/Privacy';
+import Auth from './pages/Auth';
+import { CheckoutSuccess, CheckoutCancel } from './pages/CheckoutResult';
 
 // Deferred/legacy surfaces removed entirely per the UX redesign kill list
 // (see /ux/redesign board C): /cart, /compare, /tiers, /admin, and the
@@ -29,6 +31,9 @@ function App() {
         <Route path="/saved" element={<Saved />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/checkout/success" element={<CheckoutSuccess />} />
+        <Route path="/checkout/cancel" element={<CheckoutCancel />} />
       </Route>
     </Routes>
   );

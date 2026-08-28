@@ -23,6 +23,10 @@ export interface Product {
   confidence: number;
   breakdown: BreakdownRow[];
   source: string;
+  /** Present on products pulled in by the fetch-product Edge Function. */
+  productUrl?: string;
+  imageUrl?: string;
+  sizeChart?: unknown;
 }
 
 export const STORES = ['Myntra', 'AJIO', 'Amazon', 'Flipkart', 'Meesho', 'Nykaa Fashion'];

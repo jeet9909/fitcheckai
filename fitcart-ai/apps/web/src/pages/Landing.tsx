@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { STORES } from '../data/products';
 import Placeholder from '../components/Placeholder';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 /**
  * HOME = THE TOOL.
@@ -19,13 +20,28 @@ import Placeholder from '../components/Placeholder';
 export default function Landing() {
   const navigate = useNavigate();
   const [link, setLink] = useState('');
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
 
-  const startFromLink = () => {
-    // Real behaviour once the backend exists: POST the link to a
-    // garment-parsing endpoint, then route to /setup with the parsed
-    // product attached. For now this routes straight into the one-photo
-    // flow so the front end is fully clickable end to end.
-    navigate('/setup', { state: { sourceLink: link || null } });
+  const startFromLink = async () => {
+    if (!isSupabaseConfigured || !supabase || !link) {
+      navigate('/setup', { state: { sourceLink: link || null } });
+      return;
+    }
+
+    setParsing(true);
+    setParseError(null);
+    const { data, error } = await supabase.functions.invoke('fetch-product', { body: { url: link } });
+    setParsing(false);
+
+    if (error || !data) {
+      // Degrade gracefully — don't block the flow on a parse failure.
+      setParseError("We couldn't read that link — try uploading a photo of the garment instead.");
+      navigate('/setup', { state: { sourceLink: link } });
+      return;
+    }
+
+    navigate('/setup', { state: { sourceLink: link, parsedProduct: data } });
   };
 
   return (
@@ -61,11 +77,15 @@ export default function Landing() {
             <button
               onClick={startFromLink}
               className="fc-btn-primary"
+              disabled={parsing}
               style={{ width: 'auto', padding: '15px 26px', flex: 'none' }}
             >
-              See it on me
+              {parsing ? 'Reading link…' : 'See it on me'}
             </button>
           </div>
+          {parseError && (
+            <p style={{ fontSize: 12.5, color: 'var(--amber-text)', margin: '0 0 12px' }}>{parseError}</p>
+          )}
           <button
             onClick={() => navigate('/setup')}
             style={{ background: 'none', border: 'none', color: 'var(--ink-soft)', fontSize: 13, padding: 0, textDecoration: 'underline', cursor: 'pointer' }}

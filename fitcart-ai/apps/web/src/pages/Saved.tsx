@@ -1,9 +1,12 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fmt } from '../lib/format';
 import { useAppState } from '../state/AppState';
+import { useAuth } from '../state/AuthState';
+import { supabase } from '../lib/supabase';
 import ProductImage from '../components/ProductImage';
 
-const SIZE_MEMORY = [
+const FALLBACK_SIZE_MEMORY = [
   { brand: "Levi's", size: '34 / M', note: 'True to size' },
   { brand: 'H&M', size: 'L', note: 'Runs small' },
   { brand: 'Zara', size: 'M', note: 'True to size' },
@@ -12,7 +15,29 @@ const SIZE_MEMORY = [
 export default function Saved() {
   const navigate = useNavigate();
   const { products, savedProductIds, toggleSave } = useAppState();
+  const { user } = useAuth();
   const savedProducts = savedProductIds.map((id) => products.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
+
+  const [sizeMemory, setSizeMemory] = useState(FALLBACK_SIZE_MEMORY);
+
+  useEffect(() => {
+    if (!supabase || !user) return;
+    supabase
+      .from('size_memory')
+      .select('brand, size, note')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (data && data.length > 0) setSizeMemory(data);
+      });
+  }, [user]);
+
+  const handleSaveEmptyState = () => {
+    if (!user) {
+      navigate('/auth?redirect=/saved');
+      return;
+    }
+    navigate('/setup');
+  };
 
   return (
     <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 28px 100px' }}>
@@ -23,7 +48,7 @@ export default function Saved() {
         <div style={{ border: '1px dashed var(--border)', borderRadius: 14, padding: 28, textAlign: 'center', marginBottom: 36 }}>
           <p style={{ fontSize: 13.5, color: 'var(--ink-faint)', margin: '0 0 14px' }}>Nothing saved yet. Try a garment on and save the render.</p>
           <button
-            onClick={() => navigate('/setup')}
+            onClick={handleSaveEmptyState}
             style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '10px 18px', borderRadius: 8 }}
           >
             See it on me
@@ -48,12 +73,12 @@ export default function Saved() {
 
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 14 }}>Size memory</div>
       <div style={{ border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-        {SIZE_MEMORY.map((row, i) => (
+        {sizeMemory.map((row, i) => (
           <div
             key={row.brand}
             style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
-              borderBottom: i < SIZE_MEMORY.length - 1 ? '1px solid var(--border)' : 'none',
+              borderBottom: i < sizeMemory.length - 1 ? '1px solid var(--border)' : 'none',
             }}
           >
             <span style={{ fontSize: 13.5, fontWeight: 600 }}>{row.brand}</span>

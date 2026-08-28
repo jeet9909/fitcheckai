@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { AppStateProvider } from './state/AppState.tsx'
+import { AuthProvider } from './state/AuthState.tsx'
 import ScrollToTop from './components/ScrollToTop.tsx'
 import { installMockBackend } from './lib/mockBackend.ts'
 
@@ -17,8 +18,10 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter basename={basename}>
       <AppStateProvider>
-        <ScrollToTop />
-        <App />
+        <AuthProvider>
+          <ScrollToTop />
+          <App />
+        </AuthProvider>
       </AppStateProvider>
     </BrowserRouter>
   </StrictMode>,
