@@ -1,56 +1,81 @@
-import { useNavigate } from 'react-router-dom';
+import { useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
 
+/**
+ * ONE PHOTO. This replaces the old 3-step form (photo + height/weight +
+ * two consent checkboxes) that the audit flagged as the single biggest
+ * leak: the largest ask in the whole product, arriving before any value
+ * had been shown. Height/weight now live behind an optional "improve
+ * accuracy" prompt AFTER the first render, not here.
+ */
 export default function Setup() {
   const navigate = useNavigate();
-  const { consent, toggleConsent, markProfileSetupDone } = useAppState();
+  const location = useLocation();
+  const sourceLink = (location.state as { sourceLink?: string | null } | null)?.sourceLink ?? null;
+  const { markProfileSetupDone } = useAppState();
+  const [preview, setPreview] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const onFile = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const submitSetup = () => {
     markProfileSetupDone();
-    navigate('/processing', { state: { afterRoute: '/tryon' } });
+    navigate('/processing', { state: { afterRoute: '/result', sourceLink } });
   };
 
   return (
-    <main style={{ maxWidth: 640, margin: '0 auto', padding: '48px 28px 100px' }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 6px' }}>Create your personal fit profile</h1>
-      <p style={{ fontSize: 14, color: 'var(--ink-soft)', margin: '0 0 32px' }}>Used only to estimate fit. Delete this anytime from your profile.</p>
+    <main style={{ maxWidth: 420, margin: '0 auto', padding: '32px 24px 100px' }}>
+      <button onClick={() => navigate(-1)} style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', fontSize: 12.5, padding: 0, marginBottom: 18, cursor: 'pointer' }}>
+        ← Back
+      </button>
+      <h1 className="display" style={{ fontSize: 22, fontWeight: 700, margin: '0 0 6px' }}>One full-body photo</h1>
+      <p style={{ fontSize: 13.5, color: 'var(--ink-soft)', margin: '0 0 20px' }}>
+        Stand straight, arms relaxed, head to feet.
+      </p>
 
-      <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 22, marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>1. Upload a full-body photo</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div style={{ aspectRatio: '3/4', border: '1.5px dashed var(--border)', borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--ink-faint)' }}>
-            <span style={{ fontSize: 22 }}>+</span>
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Upload photo</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5, color: 'var(--ink-soft)', justifyContent: 'center' }}>
-            {['Full body, head to feet', 'Good, even lighting', 'Front-facing, arms relaxed', 'Clear clothing silhouette'].map((t) => (
-              <div key={t} style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span style={{ color: 'var(--accent-dark)' }}>✓</span>{t}</div>
-            ))}
-          </div>
-        </div>
+      <input ref={fileInput} type="file" accept="image/*" capture="user" style={{ display: 'none' }} onChange={(e) => onFile(e.target.files?.[0])} />
+
+      <div
+        onClick={() => fileInput.current?.click()}
+        style={{
+          aspectRatio: '3/5', borderRadius: 16, border: preview ? '1px solid var(--border)' : '2px dashed var(--border)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          background: preview ? `center/cover no-repeat url(${preview})` : 'var(--surface-alt)',
+          cursor: 'pointer', marginBottom: 18, position: 'relative', overflow: 'hidden',
+        }}
+      >
+        {!preview && (
+          <>
+            <span style={{ fontSize: 30, color: 'var(--ink-faint)' }}>+</span>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-faint)', marginTop: 6 }}>Tap to take or upload a photo</span>
+          </>
+        )}
       </div>
 
-      <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 22, marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>2. A few measurements</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-          <div><div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginBottom: 5 }}>Height (cm)</div><input placeholder="175" style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none' }} /></div>
-          <div><div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginBottom: 5 }}>Weight (kg) — optional</div><input placeholder="70" style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', fontSize: 13, outline: 'none' }} /></div>
-        </div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <button onClick={() => fileInput.current?.click()} className="fc-btn-secondary" style={{ flex: 1 }}>
+          {preview ? 'Retake' : 'Take photo'}
+        </button>
       </div>
 
-      <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 22, marginBottom: 28, background: 'var(--surface-alt)' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>3. Consent</div>
-        <p style={{ fontSize: 12.5, color: 'var(--ink-soft)', lineHeight: 1.55, margin: '0 0 14px' }}>Your photos are protected and used only to estimate fit and generate a preview. Delete your body data anytime from your profile.</p>
-        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12.5, marginBottom: 10, cursor: 'pointer' }}>
-          <input type="checkbox" checked={consent.photos} onChange={() => toggleConsent('photos')} style={{ marginTop: 2 }} />
-          <span>I consent to FitCart analyzing my photo to estimate fit and generate a preview.</span>
-        </label>
-        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12.5, cursor: 'pointer' }}>
-          <input type="checkbox" checked={consent.sharing} onChange={() => toggleConsent('sharing')} style={{ marginTop: 2 }} />
-          <span>I'd like my (anonymized) fit feedback to help improve FitCart's AI for everyone.</span>
-        </label>
+      <div style={{ border: '1px solid var(--teal)', background: 'var(--teal-soft)', borderRadius: 12, padding: '14px 16px', marginBottom: 24 }}>
+        <p style={{ fontSize: 12, color: 'var(--teal)', lineHeight: 1.55, margin: 0 }}>
+          Used only to render this look. Auto-deleted in 24 hours unless you save it. Never shown to anyone else.{' '}
+          <button onClick={() => navigate('/privacy')} style={{ background: 'none', border: 'none', color: 'var(--teal)', fontWeight: 700, padding: 0, textDecoration: 'underline', cursor: 'pointer', fontSize: 12 }}>
+            Details
+          </button>
+        </p>
       </div>
-      <button onClick={submitSetup} style={{ width: '100%', background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, padding: 15, borderRadius: 9 }}>Create Fit Profile</button>
+
+      <button onClick={submitSetup} disabled={!preview} className="fc-btn-primary" style={{ opacity: preview ? 1 : 0.45 }}>
+        See it on me
+      </button>
     </main>
   );
 }

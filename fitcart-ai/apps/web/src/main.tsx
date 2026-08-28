@@ -6,9 +6,11 @@ import App from './App.tsx'
 import { AppStateProvider } from './state/AppState.tsx'
 import ScrollToTop from './components/ScrollToTop.tsx'
 
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '')
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <AppStateProvider>
         <ScrollToTop />
         <App />

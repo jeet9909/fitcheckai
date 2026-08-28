@@ -5,11 +5,11 @@ export function useStartTryOn() {
   const navigate = useNavigate();
   const { profileSetupDone } = useAppState();
 
-  return () => {
+  return (sourceLink?: string | null) => {
     if (!profileSetupDone) {
-      navigate('/setup');
+      navigate('/setup', { state: { sourceLink: sourceLink ?? null } });
       return;
     }
-    navigate('/processing', { state: { afterRoute: '/tryon' } });
+    navigate('/processing', { state: { afterRoute: '/result', sourceLink: sourceLink ?? null } });
   };
 }

@@ -7,6 +7,20 @@
     <title>FitCart AI</title>
   </head>
   <body>
+    <script>
+      // Pairs with public/404.html — restores the real path after a
+      // GitHub Pages SPA-fallback redirect, before the router mounts.
+      (function () {
+        var params = new URLSearchParams(location.search);
+        var redirect = params.get('redirect');
+        if (redirect !== null) {
+          params.delete('redirect');
+          var rest = params.toString();
+          var newUrl = location.pathname + redirect + (rest ? '?' + rest : '') + location.hash;
+          history.replaceState(null, '', newUrl);
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

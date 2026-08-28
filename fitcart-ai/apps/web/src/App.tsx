@@ -3,21 +3,24 @@ import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Discover from './pages/Discover';
 import ProductDetail from './pages/ProductDetail';
-import OutfitStudio from './pages/OutfitStudio';
 import Setup from './pages/Setup';
 import Processing from './pages/Processing';
-import TryOnStudio from './pages/TryOnStudio';
-import FitIntelligence from './pages/FitIntelligence';
-import OutfitIntelligence from './pages/OutfitIntelligence';
-import Compare from './pages/Compare';
-import Cart from './pages/Cart';
+import Result from './pages/Result';
 import Handoff from './pages/Handoff';
 import Saved from './pages/Saved';
 import Profile from './pages/Profile';
-import Tiers from './pages/Tiers';
-import Feedback from './pages/Feedback';
 import Privacy from './pages/Privacy';
-import Admin from './pages/Admin';
+
+// Routes removed per the UX redesign kill list (see /ux/redesign board C):
+// /cart      — a cart that could never check out; buy now goes straight to /handoff
+// /compare   — nobody compares before they trust; deferred to v2
+// /tiers     — replaced by <PaywallSheet>, an in-context sheet, not a page
+// /admin     — internal tool, must not be a public route; use a separate
+//              authenticated deployment when the admin console is needed again
+// /outfit, /outfit-score, /fit, /tryon (multi-slot Outfit Studio) — deferred
+//              to v2, see board C. The single-garment flow lives at /result.
+// The page files still exist under pages/ (nothing was deleted) so any of
+// this can be restored — they are simply unrouted for the v1 launch surface.
 
 function App() {
   return (
@@ -26,21 +29,13 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/discover" element={<Discover />} />
         <Route path="/product/:id" element={<ProductDetail />} />
-        <Route path="/outfit" element={<OutfitStudio />} />
         <Route path="/setup" element={<Setup />} />
         <Route path="/processing" element={<Processing />} />
-        <Route path="/tryon" element={<TryOnStudio />} />
-        <Route path="/fit" element={<FitIntelligence />} />
-        <Route path="/outfit-score" element={<OutfitIntelligence />} />
-        <Route path="/compare" element={<Compare />} />
-        <Route path="/cart" element={<Cart />} />
+        <Route path="/result" element={<Result />} />
         <Route path="/handoff" element={<Handoff />} />
         <Route path="/saved" element={<Saved />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/tiers" element={<Tiers />} />
-        <Route path="/feedback" element={<Feedback />} />
         <Route path="/privacy" element={<Privacy />} />
-        <Route path="/admin" element={<Admin />} />
       </Route>
     </Routes>
   );

@@ -12,10 +12,9 @@ export default function LandingHeader() {
           AI
         </span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 28 }}>
-        <button onClick={() => navigate('/tiers')} style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--ink-soft)' }}>Pricing</button>
-        <button onClick={() => navigate('/privacy')} style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--ink-soft)' }}>Privacy</button>
-        <button onClick={() => navigate('/discover')} style={{ border: '1px solid var(--ink)', background: 'var(--ink)', color: '#fff', fontSize: 14, fontWeight: 600, padding: '10px 20px', borderRadius: 8 }}>Start Styling</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <button onClick={() => navigate('/privacy')} style={{ background: 'none', border: 'none', fontSize: 14, color: 'var(--ink-soft)', cursor: 'pointer' }}>Privacy</button>
+        <button onClick={() => navigate('/setup')} className="fc-btn-primary" style={{ width: 'auto', padding: '10px 20px', fontSize: 14 }}>See it on me</button>
       </div>
     </header>
   );

@@ -1,21 +1,35 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/*
+  FitCart AI palette — v2 (UX/revenue redesign, see /ux/redesign)
+  Rani pink is the ONE primary-action colour. Marigold = money/urgency.
+  Teal = trust/verified/consent. Never mix pink + marigold as equals on one screen.
+*/
 :root {
-  --ink: oklch(18% 0.01 240);
-  --ink-soft: oklch(45% 0.012 240);
-  --ink-faint: oklch(65% 0.01 240);
-  --bg: oklch(98% 0.004 240);
+  --ink: #1a1420;
+  --ink-soft: #57505e;
+  --ink-faint: #8b8592;
+  --bg: #f5f2f7;
   --surface: #ffffff;
-  --surface-alt: oklch(96% 0.006 240);
-  --border: oklch(89% 0.006 240);
-  --accent: oklch(52% 0.11 155);
-  --accent-dark: oklch(38% 0.10 155);
-  --accent-soft: oklch(93% 0.035 155);
-  --amber: oklch(55% 0.14 70);
-  --amber-soft: oklch(94% 0.05 70);
-  --amber-text: #8a6200;
-  --red: oklch(52% 0.17 25);
-  --red-soft: oklch(94% 0.045 25);
+  --surface-alt: #f1f0f4;
+  --border: #b8b2c0;
+
+  /* primary action — rani pink */
+  --accent: #d81e5b;
+  --accent-dark: #a8143f;
+  --accent-soft: #fde7ee;
+
+  /* money / urgency — marigold */
+  --amber: #f5a524;
+  --amber-soft: #fdf0d5;
+  --amber-text: #8a5a00;
+
+  /* trust / verified / consent — teal */
+  --teal: #0e7c7b;
+  --teal-soft: #dff0ef;
+
+  --red: #c2255c;
+  --red-soft: #ffe3e3;
 }
 
 * { box-sizing: border-box; }
@@ -25,10 +39,12 @@ html, body, #root { min-height: 100%; }
 body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
-  font-family: 'Sora', sans-serif;
+  font-family: 'Inter', sans-serif;
   color: var(--ink);
   background: var(--bg);
 }
+
+h1, h2, h3, .display { font-family: 'Poppins', sans-serif; }
 
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
@@ -55,4 +71,36 @@ input, textarea { font-family: inherit; }
   font-family: 'JetBrains Mono', monospace;
   color: var(--ink-faint);
   text-align: center;
+}
+
+/* --- redesign additions --- */
+@keyframes fc-sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fc-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fc-type { from { width: 0; } to { width: 100%; } }
+
+.fc-sheet-backdrop {
+  position: fixed; inset: 0; background: rgba(26, 20, 32, 0.55);
+  z-index: 90; display: flex; align-items: flex-end; justify-content: center;
+  animation: fc-fade-in 0.15s ease;
+}
+.fc-sheet {
+  width: 100%; max-width: 460px; background: var(--surface);
+  border-radius: 20px 20px 0 0; padding: 24px 22px 28px; box-shadow: 0 -12px 40px rgba(0,0,0,0.2);
+  animation: fc-sheet-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (min-width: 640px) {
+  .fc-sheet-backdrop { align-items: center; }
+  .fc-sheet { border-radius: 20px; }
+}
+.fc-btn-primary {
+  width: 100%; background: var(--accent); color: #fff; border: none;
+  font-size: 15px; font-weight: 600; padding: 15px 22px; border-radius: 10px;
+}
+.fc-btn-secondary {
+  background: var(--surface); color: var(--ink); border: 1px solid var(--border);
+  font-size: 13.5px; font-weight: 600; padding: 12px 18px; border-radius: 10px;
+}
+.fc-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600;
+  padding: 6px 12px; border-radius: 20px;
 }

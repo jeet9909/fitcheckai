@@ -69,7 +69,7 @@ export default function OutfitStudio() {
               <p style={{ fontSize: 12.5, color: 'var(--ink-faint)', margin: 0 }}>FitCart scores color harmony, style match and occasion fit once your outfit has a top and one more piece.</p>
             </div>
           )}
-          <button onClick={startTryOnFlow} style={{ width: '100%', background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, padding: 14, borderRadius: 9 }}>Try On This Outfit</button>
+          <button onClick={() => startTryOnFlow()} style={{ width: '100%', background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, padding: 14, borderRadius: 9 }}>Try On This Outfit</button>
         </div>
       </div>
 
