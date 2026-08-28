@@ -32,16 +32,8 @@ export default function Profile() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
         <button onClick={() => navigate('/saved')} style={{ textAlign: 'left', border: '1px solid var(--border)', borderRadius: 14, padding: 18, background: 'var(--surface)' }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>Saved &amp; wishlist</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>View saved items →</div>
-        </button>
-        <button onClick={() => navigate('/cart')} style={{ textAlign: 'left', border: '1px solid var(--border)', borderRadius: 14, padding: 18, background: 'var(--surface)' }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>Orders</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>View cart &amp; orders →</div>
-        </button>
-        <button onClick={() => navigate('/tiers')} style={{ textAlign: 'left', border: '1px solid var(--border)', borderRadius: 14, padding: 18, background: 'var(--surface)' }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>Subscription</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>Manage your plan →</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>My Looks</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>View saved renders →</div>
         </button>
         <button onClick={() => navigate('/privacy')} style={{ textAlign: 'left', border: '1px solid var(--border)', borderRadius: 14, padding: 18, background: 'var(--surface)' }}>
           <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>Privacy &amp; consent</div>

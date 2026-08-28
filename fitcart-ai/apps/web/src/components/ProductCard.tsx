@@ -6,10 +6,9 @@ import ProductImage from './ProductImage';
 
 export default function ProductCard({ product }: { product: Product }) {
   const navigate = useNavigate();
-  const { savedProductIds, compareIds, toggleSave, toggleCompare, addToOutfit } = useAppState();
+  const { savedProductIds, toggleSave } = useAppState();
 
   const isSaved = savedProductIds.includes(product.id);
-  const isCompared = compareIds.includes(product.id);
 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)', display: 'flex', flexDirection: 'column' }}>
@@ -37,13 +36,7 @@ export default function ProductCard({ product }: { product: Product }) {
           <span style={{ fontSize: 10, color: 'var(--ink-faint)' }}>AI recommended</span>
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-          <button onClick={() => addToOutfit(product.id)} style={{ flex: 1, background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, padding: 8, borderRadius: 7 }}>+ Outfit</button>
-          <button
-            onClick={() => toggleCompare(product.id)}
-            style={{ border: `1px solid ${isCompared ? 'var(--accent-dark)' : 'var(--border)'}`, background: isCompared ? 'var(--accent-soft)' : 'var(--surface)', color: isCompared ? 'var(--accent-dark)' : 'var(--ink-soft)', fontSize: 11, fontWeight: 600, padding: '8px 10px', borderRadius: 7 }}
-          >
-            Compare
-          </button>
+          <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, padding: 8, borderRadius: 7 }}>See it on me</button>
         </div>
       </div>
     </div>

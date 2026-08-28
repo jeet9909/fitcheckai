@@ -10,7 +10,7 @@ const SIZES = ['S', 'M', 'L', 'XL'];
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { products, savedProductIds, compareIds, toggleSave, toggleCompare, addToOutfit } = useAppState();
+  const { products, savedProductIds, toggleSave } = useAppState();
   const [selectedSize, setSelectedSize] = useState('M');
 
   const product = products.find((p) => p.id === Number(id));
@@ -18,7 +18,6 @@ export default function ProductDetail() {
     return <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 28px 80px' }} />;
   }
   const isSaved = savedProductIds.includes(product.id);
-  const isCompared = compareIds.includes(product.id);
   const band = confidenceBand(product.confidence);
 
   return (
@@ -62,9 +61,8 @@ export default function ProductDetail() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 10, marginBottom: 26 }}>
-            <button onClick={() => addToOutfit(product.id)} style={{ flex: 1, background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 600, padding: 14, borderRadius: 9 }}>Add to Outfit</button>
+            <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 9 }}>See it on me</button>
             <button onClick={() => toggleSave(product.id)} style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, padding: '14px 18px', borderRadius: 9, color: isSaved ? 'var(--accent-dark)' : 'var(--ink-faint)' }}>{isSaved ? '♥ Saved' : '♡ Save'}</button>
-            <button onClick={() => toggleCompare(product.id)} style={{ border: `1px solid ${isCompared ? 'var(--accent-dark)' : 'var(--border)'}`, background: isCompared ? 'var(--accent-soft)' : 'var(--surface)', fontSize: 14, fontWeight: 600, padding: '14px 18px', borderRadius: 9, color: isCompared ? 'var(--accent-dark)' : 'var(--ink)' }}>Compare</button>
           </div>
           <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 20, background: 'var(--surface-alt)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -78,7 +76,6 @@ export default function ProductDetail() {
               </div>
             ))}
             <p style={{ fontSize: 12, color: 'var(--ink-faint)', margin: '12px 0 0', lineHeight: 1.5 }}>AI estimate based on your fit profile. Not a guaranteed measurement.</p>
-            <button onClick={() => navigate('/fit', { state: { productId: product.id } })} style={{ background: 'none', border: 'none', color: 'var(--accent-dark)', fontSize: 13, fontWeight: 600, padding: '10px 0 0' }}>View full Fit Intelligence →</button>
           </div>
         </div>
       </div>
