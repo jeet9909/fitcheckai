@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { uploadBodyProfile } from '../lib/bodyProfile';
 
 /**
  * ONE PHOTO. This replaces the old 3-step form (photo + height/weight +
@@ -12,21 +14,48 @@ import { useAppState } from '../state/AppState';
 export default function Setup() {
   const navigate = useNavigate();
   const location = useLocation();
-  const sourceLink = (location.state as { sourceLink?: string | null } | null)?.sourceLink ?? null;
-  const { markProfileSetupDone } = useAppState();
+  const routeState = location.state as {
+    sourceLink?: string | null;
+    productId?: number;
+    parsedProduct?: { id?: number };
+  } | null;
+  const sourceLink = routeState?.sourceLink ?? null;
+  const productId = routeState?.productId ?? routeState?.parsedProduct?.id ?? null;
+  const { markProfileSetupDone, consent, showToast } = useAppState();
   const [preview, setPreview] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const onFile = (file: File | undefined) => {
-    if (!file) return;
+  const onFile = (selected: File | undefined) => {
+    if (!selected) return;
+    setFile(selected);
     const reader = new FileReader();
     reader.onload = () => setPreview(reader.result as string);
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(selected);
   };
 
-  const submitSetup = () => {
+  const submitSetup = async () => {
     markProfileSetupDone();
-    navigate('/processing', { state: { afterRoute: '/result', sourceLink } });
+
+    if (!isSupabaseConfigured || !file) {
+      navigate('/processing', { state: { afterRoute: '/result', sourceLink, productId } });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const bodyProfile = await uploadBodyProfile(file, consent.sharing);
+      setSubmitting(false);
+      if (!bodyProfile) {
+        showToast('Could not save your photo — try again');
+        return;
+      }
+      navigate('/processing', { state: { productId, bodyProfileId: bodyProfile.id, sourceLink } });
+    } catch {
+      setSubmitting(false);
+      showToast('Could not upload your photo — try again');
+    }
   };
 
   return (
@@ -73,8 +102,8 @@ export default function Setup() {
         </p>
       </div>
 
-      <button onClick={submitSetup} disabled={!preview} className="fc-btn-primary" style={{ opacity: preview ? 1 : 0.45 }}>
-        See it on me
+      <button onClick={submitSetup} disabled={!preview || submitting} className="fc-btn-primary" style={{ opacity: preview && !submitting ? 1 : 0.45 }}>
+        {submitting ? 'Uploading…' : 'See it on me'}
       </button>
     </main>
   );

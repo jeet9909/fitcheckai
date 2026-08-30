@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { startRender, QuotaExceededError } from '../lib/tryon';
+import type { ProcessingResult } from '../lib/tryon';
 
 const STEP_LABELS = [
   'Reading the garment…',
@@ -9,31 +11,65 @@ const STEP_LABELS = [
   'Finalizing your render…',
 ];
 
+interface ProcessingState {
+  afterRoute?: string;
+  sourceLink?: string | null;
+  productId?: number | null;
+  bodyProfileId?: number;
+}
+
 /**
  * "The wait is content." A bare spinner makes 20s feel like 60s — typing
  * out real garment facts makes the wait feel like work being done for the
  * user, and it pre-sells the verdict that's coming on the Result screen.
+ *
+ * The step animation always runs (it's true regardless of backend state);
+ * `bodyProfileId` being present is what determines whether a *real*
+ * create-render call backs it. Without one (Supabase not configured, e.g.
+ * local dev without credentials) this falls back to the original fixed-
+ * timer navigation so the flow still demoes end to end.
  */
 export default function Processing() {
   const navigate = useNavigate();
   const location = useLocation();
-  const state = location.state as { afterRoute?: string; sourceLink?: string | null } | null;
+  const state = location.state as ProcessingState | null;
   const afterRoute = state?.afterRoute ?? '/result';
   const [step, setStep] = useState(0);
   const progress = Math.min(100, Math.round((step / STEP_LABELS.length) * 100));
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setStep((prev) => {
-        const next = prev + 1;
-        if (next >= STEP_LABELS.length) {
-          window.clearInterval(timer);
-          window.setTimeout(() => navigate(afterRoute, { replace: true, state: { sourceLink: state?.sourceLink ?? null } }), 500);
-        }
-        return Math.min(next, STEP_LABELS.length);
-      });
+      setStep((prev) => Math.min(prev + 1, STEP_LABELS.length));
     }, 900);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      if (!state?.bodyProfileId) {
+        // No real backend to call — keep the original fixed-timer demo path.
+        window.setTimeout(() => {
+          if (!cancelled) navigate(afterRoute, { replace: true, state: { sourceLink: state?.sourceLink ?? null } });
+        }, STEP_LABELS.length * 900 + 500);
+        return;
+      }
+
+      let result: ProcessingResult;
+      try {
+        result = { kind: 'done', render: await startRender(state.bodyProfileId, state.productId ?? null) };
+      } catch (err) {
+        result = err instanceof QuotaExceededError
+          ? { kind: 'quota_exceeded' }
+          : { kind: 'error', message: err instanceof Error ? err.message : 'Render failed' };
+      }
+      if (cancelled) return;
+      navigate(afterRoute, { replace: true, state: { result } });
+    }
+
+    run();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

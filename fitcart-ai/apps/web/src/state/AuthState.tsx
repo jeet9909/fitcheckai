@@ -4,12 +4,20 @@ import { supabase } from '../lib/supabase';
 
 export interface AuthStateValue {
   user: User | null;
+  /** True once a real account exists — false for the bootstrap anonymous session. */
+  isRealAccount: boolean;
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthStateValue | null>(null);
+
+// Module-scoped (not component state) so React StrictMode's dev-only double-
+// invoke of the effect below — or any other rapid double-mount — can't race
+// two signInAnonymously() calls and create two throwaway anonymous users.
+// Both invocations await the same in-flight bootstrap instead.
+let anonymousBootstrap: Promise<Session | null> | null = null;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -18,14 +26,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(Boolean(supabase));
 
   useEffect(() => {
-    if (!supabase) return;
+    const client = supabase;
+    if (!client) return;
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    // The product promises "2 free looks, no signup" (Landing.tsx) — that
+    // needs a real auth.uid() for guests too, so storage RLS and the
+    // server-side render quota (create-render Edge Function) can apply to
+    // them the same way they do to signed-in users. Anonymous auth gives a
+    // guest a real session on first visit; supabase.auth.linkIdentity()
+    // on signup/Google carries that same uid forward instead of starting a
+    // fresh one, so usage history isn't lost by creating an account.
+    client.auth.getSession().then(async ({ data }) => {
+      if (data.session) {
+        setSession(data.session);
+        setLoading(false);
+        return;
+      }
+
+      anonymousBootstrap ??= client.auth.signInAnonymously().then(({ data: anon, error }) => {
+        if (error) return null; // non-fatal — features needing a uid surface their own "sign in" prompt
+        return anon.session;
+      });
+      const anonSession = await anonymousBootstrap;
+      setSession(anonSession);
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: listener } = client.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setLoading(false);
     });
@@ -38,12 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const user = session?.user ?? null;
+
   const value = useMemo<AuthStateValue>(() => ({
-    user: session?.user ?? null,
+    user,
+    isRealAccount: Boolean(user && !user.is_anonymous),
     session,
     loading,
     signOut,
-  }), [session, loading]);
+  }), [user, session, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

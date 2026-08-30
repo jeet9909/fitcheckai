@@ -5,21 +5,21 @@ import { useAuth } from '../state/AuthState';
 export default function Profile() {
   const navigate = useNavigate();
   const { profileSetupDone, deleteBodyData } = useAppState();
-  const { user, signOut } = useAuth();
+  const { user, isRealAccount, signOut } = useAuth();
 
   return (
     <main style={{ maxWidth: 820, margin: '0 auto', padding: '32px 28px 100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--ink)', color: '#fff', fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {user ? user.email!.charAt(0).toUpperCase() : '?'}
+            {isRealAccount ? user!.email!.charAt(0).toUpperCase() : '?'}
           </div>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 700 }}>{user ? user.email : 'Not signed in'}</div>
-            {user && <div style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>{user.email}</div>}
+            <div style={{ fontSize: 17, fontWeight: 700 }}>{isRealAccount ? user!.email : 'Not signed in'}</div>
+            {isRealAccount && <div style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>{user!.email}</div>}
           </div>
         </div>
-        {user ? (
+        {isRealAccount ? (
           <button onClick={signOut} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--ink-soft)', fontSize: 12.5, fontWeight: 600, padding: '8px 14px', borderRadius: 7 }}>Sign out</button>
         ) : (
           <button onClick={() => navigate('/auth?redirect=/profile')} className="fc-btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12.5 }}>Sign in</button>

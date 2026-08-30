@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import PaywallSheet from '../components/PaywallSheet';
 import Placeholder from '../components/Placeholder';
 import { useAppState } from '../state/AppState';
@@ -7,37 +7,114 @@ import { useAuth } from '../state/AuthState';
 import { supabase } from '../lib/supabase';
 import { hasFreeRendersLeft, recordRenderUsed, rendersRemaining } from '../lib/renderGate';
 import { startCheckout } from '../lib/checkout';
+import { startRender, QuotaExceededError, type ProcessingResult, type RenderRow, type RegionRow } from '../lib/tryon';
 
-/**
- * THE AHA. One garment, one body, one plain-language verdict.
- *
- * TODO(backend): this screen currently reads a mock verdict. Wire it to the
- * real render + verdict API once that exists — see the "backend handoff"
- * section of the redesign prompt for the expected request/response shape.
- */
+interface ResultLocationState {
+  result?: ProcessingResult;
+}
+
+interface Verdict {
+  size: string;
+  headline: string;
+  detail: string;
+  garment: string;
+  price: string;
+  imageUrl: string | null;
+  regionBreakdown: RegionRow[] | null;
+  renderId: number | null;
+  productId: number | null;
+  bodyProfileId: number | null;
+}
+
+const FALLBACK_VERDICT: Verdict = {
+  size: 'L',
+  headline: 'Go with L.',
+  detail: "Snug across the chest in M. This brand runs about half a size small.",
+  garment: 'H&M Oversized Tee',
+  price: '₹799',
+  imageUrl: null,
+  regionBreakdown: null,
+  renderId: null,
+  productId: null,
+  bodyProfileId: null,
+};
+
+function verdictFromRender(render: RenderRow): Verdict {
+  return {
+    size: render.size_recommended ?? 'M',
+    headline: render.headline ?? 'Here’s your look.',
+    detail: render.detail ?? '',
+    garment: 'this garment',
+    price: '',
+    imageUrl: render.render_image_url,
+    regionBreakdown: render.region_breakdown,
+    renderId: render.id,
+    productId: render.product_id,
+    bodyProfileId: render.body_profile_id,
+  };
+}
+
 export default function Result() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useAppState();
-  const { user } = useAuth();
+  const { user, isRealAccount } = useAuth();
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [reRendering, setReRendering] = useState(false);
 
-  // Mock verdict — replace with the real API response.
-  const verdict = {
-    size: 'L',
-    headline: 'Go with L.',
-    detail: "Snug across the chest in M. This brand runs about half a size small.",
-    garment: 'H&M Oversized Tee',
-    price: '₹799',
+  const routeResult = (location.state as ResultLocationState | null)?.result;
+
+  const verdict: Verdict = routeResult?.kind === 'done' ? verdictFromRender(routeResult.render) : FALLBACK_VERDICT;
+
+  useEffect(() => {
+    if (routeResult?.kind === 'quota_exceeded') {
+      setPaywallOpen(true);
+    } else if (routeResult?.kind === 'error') {
+      showToast('Could not render your look — try again');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const runRender = async (): Promise<ProcessingResult> => {
+    if (verdict.bodyProfileId == null) {
+      // No real backend context to re-render from (mock/local fallback) —
+      // fall through to the original demo navigation.
+      return { kind: 'error', message: 'no-context' };
+    }
+    try {
+      return { kind: 'done', render: await startRender(verdict.bodyProfileId, verdict.productId) };
+    } catch (err) {
+      return err instanceof QuotaExceededError ? { kind: 'quota_exceeded' } : { kind: 'error', message: String(err) };
+    }
   };
 
-  const handleTryAnotherSize = () => {
+  const handleTryAnotherSize = async () => {
     if (!hasFreeRendersLeft()) {
       setPaywallOpen(true);
       return;
     }
+    if (verdict.bodyProfileId == null) {
+      // Mock/local fallback path — no real render to redo.
+      recordRenderUsed();
+      showToast(`Re-rendering… ${rendersRemaining()} free look(s) left after this`);
+      navigate('/processing', { state: { afterRoute: '/result' } });
+      return;
+    }
+
+    setReRendering(true);
+    const result = await runRender();
+    setReRendering(false);
+
+    if (result.kind === 'quota_exceeded') {
+      setPaywallOpen(true);
+      return;
+    }
+    if (result.kind === 'error') {
+      showToast('Could not render your look — try again');
+      return;
+    }
     recordRenderUsed();
-    showToast(`Re-rendering… ${rendersRemaining()} free look(s) left after this`);
-    navigate('/processing', { state: { afterRoute: '/result' } });
+    navigate('/result', { replace: true, state: { result } });
   };
 
   const handleShare = () => {
@@ -51,7 +128,7 @@ export default function Result() {
   };
 
   const handleSave = async () => {
-    if (!user) {
+    if (!isRealAccount) {
       navigate('/auth?redirect=/result');
       return;
     }
@@ -60,8 +137,15 @@ export default function Result() {
       return;
     }
     const { error } = await supabase.from('saved_looks').insert({
-      user_id: user.id,
-      verdict,
+      user_id: user!.id,
+      product_id: verdict.productId,
+      render_url: verdict.imageUrl,
+      verdict: {
+        size: verdict.size,
+        headline: verdict.headline,
+        detail: verdict.detail,
+        regionBreakdown: verdict.regionBreakdown,
+      },
     });
     showToast(error ? 'Could not save — try again' : 'Saved to My Looks');
   };
@@ -80,19 +164,25 @@ export default function Result() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 20 }}>
         <div style={{ position: 'relative' }}>
-          <Placeholder ratio="4/5" radius={18} fontSize={12} padding={20}>
-            YOUR RENDER — {verdict.garment}
-          </Placeholder>
-          {/* Tailor's-chalk callouts, per board C — swap for real coordinates from the vision model */}
-          <div style={{ position: 'absolute', top: '18%', left: '10%', color: '#fff', fontSize: 11, fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-            shoulder — spot on
-          </div>
-          <div style={{ position: 'absolute', top: '38%', left: '10%', color: '#fff', fontSize: 11, fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-            chest — 2cm snug
-          </div>
-          <div style={{ position: 'absolute', top: '68%', left: '10%', color: '#fff', fontSize: 11, fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-            length — sits at hip
-          </div>
+          {verdict.imageUrl ? (
+            <img
+              src={verdict.imageUrl}
+              alt="Your try-on render"
+              style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', borderRadius: 18, display: 'block' }}
+            />
+          ) : (
+            <Placeholder ratio="4/5" radius={18} fontSize={12} padding={20}>
+              YOUR RENDER — {verdict.garment}
+            </Placeholder>
+          )}
+          {verdict.regionBreakdown?.map((row, i) => (
+            <div
+              key={row.label}
+              style={{ position: 'absolute', top: `${18 + i * 20}%`, left: '10%', color: '#fff', fontSize: 11, fontWeight: 700, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}
+            >
+              {row.label.toLowerCase()} — {row.value.toLowerCase()}
+            </div>
+          ))}
         </div>
 
         <div style={{ border: '2px solid var(--teal)', background: 'var(--teal-soft)', borderRadius: 14, padding: '18px 20px' }}>
@@ -100,14 +190,18 @@ export default function Result() {
           <div style={{ fontSize: 13.5, color: 'var(--teal)', lineHeight: 1.5 }}>{verdict.detail}</div>
         </div>
 
-        <button onClick={handleBuy} className="fc-btn-primary">
-          Buy at Myntra — size {verdict.size} — {verdict.price}
-        </button>
+        {verdict.price && (
+          <button onClick={handleBuy} className="fc-btn-primary">
+            Buy at Myntra — size {verdict.size} — {verdict.price}
+          </button>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           <button onClick={handleShare} className="fc-btn-secondary">Share</button>
           <button onClick={handleSave} className="fc-btn-secondary">Save</button>
-          <button onClick={handleTryAnotherSize} className="fc-btn-secondary">Try another size</button>
+          <button onClick={handleTryAnotherSize} disabled={reRendering} className="fc-btn-secondary">
+            {reRendering ? 'Rendering…' : 'Try another size'}
+          </button>
         </div>
 
         <p style={{ fontSize: 11, color: 'var(--ink-faint)', textAlign: 'center', margin: 0 }}>
@@ -119,7 +213,7 @@ export default function Result() {
         open={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         onChoosePlan={async (plan) => {
-          if (!user) {
+          if (!isRealAccount) {
             navigate('/auth?redirect=/result');
             return;
           }

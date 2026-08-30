@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useAppState } from '../state/AppState';
+import { useAuth } from '../state/AuthState';
 
 /**
  * The only auth surface in the product. Reached from "Save" on /result and
@@ -12,6 +13,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { showToast } = useAppState();
+  const { isRealAccount } = useAuth();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,9 +28,15 @@ export default function Auth() {
       return;
     }
     setBusy(true);
+    // Converting the bootstrap anonymous session (AuthState.tsx) in place
+    // with updateUser — rather than a plain signUp, which would create a
+    // separate account and orphan the guest's renders/body profile — is
+    // what makes "2 free looks, no signup" actually carry over on signup.
     const { error } = mode === 'signin'
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password });
+      : !isRealAccount
+        ? await supabase.auth.updateUser({ email, password })
+        : await supabase.auth.signUp({ email, password });
     setBusy(false);
     if (error) {
       showToast(error.message);
@@ -42,10 +50,11 @@ export default function Auth() {
       showToast('Sign-in isn’t connected yet — backend coming soon');
       return;
     }
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin + redirectTo },
-    });
+    const options = { redirectTo: window.location.origin + redirectTo };
+    const { error } = !isRealAccount
+      ? await supabase.auth.linkIdentity({ provider: 'google', options })
+      : await supabase.auth.signInWithOAuth({ provider: 'google', options });
+    if (error) showToast(error.message);
   };
 
   return (
