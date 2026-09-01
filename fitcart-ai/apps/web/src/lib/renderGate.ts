@@ -1,16 +1,13 @@
-import { supabase } from './supabase';
-
 /**
- * Client-side render-quota gate. Per the redesign plan, the free tier is 2
- * renders on the user's own photo, lifetime, then a paywall sheet fires.
- * Demo-body renders are unlimited and never count here.
- *
- * The localStorage counter below is the ONLY source of truth for anonymous
- * visitors (the spec explicitly allows 2 free renders before any signup),
- * so it stays. When a user IS signed in, recordRenderUsed() also does a
- * best-effort write to the render_usage table (RLS-scoped to their own
- * rows) so usage is visible cross-device later — this does not replace the
- * localStorage count, it supplements it.
+ * Client-side render-quota hint. The real enforcement is server-side now —
+ * create-render (Supabase Edge Function) checks render_usage/subscriptions
+ * itself and returns 402 once a caller is actually out of renders (see
+ * src/lib/tryon.ts's QuotaExceededError) — so this localStorage counter is
+ * just a fast, offline-friendly pre-check to skip an obviously-wasted round
+ * trip and show the paywall immediately. It is NOT the source of truth: a
+ * cleared localStorage no longer grants extra renders, since the server
+ * re-checks render_usage (keyed by the real auth.uid(), anonymous or not)
+ * regardless of what this counter says.
  */
 
 const KEY = 'fitcart_free_renders_used';
@@ -24,16 +21,6 @@ export function getRendersUsed(): number {
 export function recordRenderUsed(): number {
   const next = getRendersUsed() + 1;
   window.localStorage.setItem(KEY, String(next));
-
-  const client = supabase;
-  if (client) {
-    client.auth.getUser().then(({ data }) => {
-      const user = data.user;
-      if (!user) return;
-      client.from('render_usage').insert({ user_id: user.id, is_demo_body: false }).then(() => {});
-    });
-  }
-
   return next;
 }
 

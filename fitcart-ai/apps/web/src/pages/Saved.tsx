@@ -15,13 +15,13 @@ const FALLBACK_SIZE_MEMORY = [
 export default function Saved() {
   const navigate = useNavigate();
   const { products, savedProductIds, toggleSave } = useAppState();
-  const { user } = useAuth();
+  const { user, isRealAccount } = useAuth();
   const savedProducts = savedProductIds.map((id) => products.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   const [sizeMemory, setSizeMemory] = useState(FALLBACK_SIZE_MEMORY);
 
   useEffect(() => {
-    if (!supabase || !user) return;
+    if (!supabase || !isRealAccount || !user) return;
     supabase
       .from('size_memory')
       .select('brand, size, note')
@@ -29,10 +29,10 @@ export default function Saved() {
       .then(({ data }) => {
         if (data && data.length > 0) setSizeMemory(data);
       });
-  }, [user]);
+  }, [user, isRealAccount]);
 
   const handleSaveEmptyState = () => {
-    if (!user) {
+    if (!isRealAccount) {
       navigate('/auth?redirect=/saved');
       return;
     }

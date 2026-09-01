@@ -5,9 +5,4 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   base: process.env.GITHUB_PAGES ? '/fitcheckai/' : '/',
   plugins: [react()],
-  server: {
-    proxy: {
-      '/api': 'http://localhost:8788',
-    },
-  },
 })
