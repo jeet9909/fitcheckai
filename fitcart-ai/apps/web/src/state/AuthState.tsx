@@ -13,6 +13,12 @@ export interface AuthStateValue {
 
 const AuthContext = createContext<AuthStateValue | null>(null);
 
+// Module-scoped (not component state) so React StrictMode's dev-only double-
+// invoke of the effect below — or any other rapid double-mount — can't race
+// two signInAnonymously() calls and create two throwaway anonymous users.
+// Both invocations await the same in-flight bootstrap instead.
+let anonymousBootstrap: Promise<Session | null> | null = null;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   // If Supabase isn't configured (e.g. the GH Pages mock-API build), there's
@@ -36,14 +42,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      const { data: anon, error } = await client.auth.signInAnonymously();
-      if (error) {
-        // Non-fatal — features that need a uid (photo upload, try-on,
-        // saving) will surface their own "sign in" prompt.
-        setLoading(false);
-        return;
-      }
-      setSession(anon.session);
+
+      anonymousBootstrap ??= client.auth.signInAnonymously().then(({ data: anon, error }) => {
+        if (error) return null; // non-fatal — features needing a uid surface their own "sign in" prompt
+        return anon.session;
+      });
+      const anonSession = await anonymousBootstrap;
+      setSession(anonSession);
       setLoading(false);
     });
 
