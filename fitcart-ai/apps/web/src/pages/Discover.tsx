@@ -1,7 +1,67 @@
 import { useMemo, useState } from 'react';
 import { BUCKETS, STORES } from '../data/products';
 import { useAppState } from '../state/AppState';
+import { searchStoreProducts } from '../lib/api';
 import ProductCard from '../components/ProductCard';
+
+/**
+ * Live store search. Calls the real Amazon PA-API / Flipkart Affiliate API
+ * (search-products Edge Function) — there is no mock/placeholder path here
+ * on purpose: an unconfigured store says so plainly instead of returning
+ * fake products. Myntra/AJIO/Meesho/Nykaa Fashion have no public catalog
+ * API, so they aren't offered here — use "paste a link" on Home for those.
+ */
+function StoreSearch() {
+  const { showToast, refreshProducts } = useAppState();
+  const [query, setQuery] = useState('');
+  const [store, setStore] = useState<'amazon' | 'flipkart'>('amazon');
+  const [searching, setSearching] = useState(false);
+
+  const runSearch = async () => {
+    if (!query.trim()) return;
+    setSearching(true);
+    const result = await searchStoreProducts(query.trim(), store);
+    setSearching(false);
+
+    if (!result.ok) {
+      showToast(result.message);
+      return;
+    }
+    if (result.count === 0) {
+      showToast(`No results from ${store === 'amazon' ? 'Amazon' : 'Flipkart'} for "${query}"`);
+      return;
+    }
+    showToast(`Found ${result.count} result(s) from ${store === 'amazon' ? 'Amazon' : 'Flipkart'}`);
+    await refreshProducts();
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+      <select
+        value={store}
+        onChange={(e) => setStore(e.target.value as 'amazon' | 'flipkart')}
+        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, background: 'var(--surface)' }}
+      >
+        <option value="amazon">Amazon</option>
+        <option value="flipkart">Flipkart</option>
+      </select>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+        placeholder="Search live listings, e.g. men's shirt"
+        style={{ flex: '1 1 240px', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--surface)' }}
+      />
+      <button
+        onClick={runSearch}
+        disabled={searching || !query.trim()}
+        style={{ border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 13, padding: '8px 16px', borderRadius: 8, opacity: searching ? 0.6 : 1 }}
+      >
+        {searching ? 'Searching…' : 'Search'}
+      </button>
+    </div>
+  );
+}
 
 export default function Discover() {
   const { products, searchQuery } = useAppState();
@@ -21,8 +81,9 @@ export default function Discover() {
     <main style={{ maxWidth: 1360, margin: '0 auto', padding: '32px 28px 80px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Discover</h1>
-        <span style={{ fontSize: 13, color: 'var(--ink-faint)' }}>{filteredProducts.length} items across 6 stores</span>
+        <span style={{ fontSize: 13, color: 'var(--ink-faint)' }}>{filteredProducts.length} item(s) in your catalog</span>
       </div>
+      <StoreSearch />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
         {BUCKETS.map((b) => {
           const active = categoryFilter === b;
@@ -51,9 +112,17 @@ export default function Discover() {
           );
         })}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 20 }}>
-        {filteredProducts.map((p) => <ProductCard key={p.id} product={p} />)}
-      </div>
+      {filteredProducts.length === 0 ? (
+        <div style={{ border: '1px dashed var(--border)', borderRadius: 14, padding: 32, textAlign: 'center' }}>
+          <p style={{ fontSize: 13.5, color: 'var(--ink-faint)', margin: 0 }}>
+            Nothing here yet. Search Amazon or Flipkart above, or paste a product link from Home.
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 20 }}>
+          {filteredProducts.map((p) => <ProductCard key={p.id} product={p} />)}
+        </div>
+      )}
     </main>
   );
 }

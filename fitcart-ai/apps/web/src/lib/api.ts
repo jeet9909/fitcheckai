@@ -93,3 +93,39 @@ export function setupProfileApi(): Promise<ApiState> {
 export function deleteProfileApi(): Promise<ApiState> {
   return req('/profile', { method: 'DELETE' });
 }
+
+export type StoreSearchResult =
+  | { ok: true; count: number; upserted: number }
+  | { ok: false; notConfigured: true; message: string }
+  | { ok: false; notConfigured: false; message: string };
+
+// Calls the search-products Edge Function (real Amazon PA-API / Flipkart
+// Affiliate API search — see supabase/functions/search-products). Results
+// are upserted server-side into `products`; call fetchProducts() /
+// AppState's refreshProducts() afterwards to pick them up. Distinguishes
+// "not configured" (no affiliate credentials set yet) from a genuine
+// request failure so the UI can say which, instead of a generic error.
+export async function searchStoreProducts(query: string, store: 'amazon' | 'flipkart'): Promise<StoreSearchResult> {
+  if (!isSupabaseConfigured || !supabase) {
+    return { ok: false, notConfigured: true, message: 'Store search isn’t connected yet — backend coming soon' };
+  }
+
+  const { data, error } = await supabase.functions.invoke<{ count: number; upserted: number; message?: string }>(
+    'search-products',
+    { body: { query, store } },
+  );
+
+  if (error) {
+    const context = (error as unknown as { context?: Response }).context;
+    const body = await context?.json().catch(() => null) as { error?: string; message?: string } | null;
+    if (context?.status === 501) {
+      return { ok: false, notConfigured: true, message: body?.message ?? `${store} search isn’t connected yet` };
+    }
+    return { ok: false, notConfigured: false, message: body?.message ?? error.message };
+  }
+  if (!data) {
+    return { ok: false, notConfigured: false, message: 'Search failed' };
+  }
+
+  return { ok: true, count: data.count, upserted: data.upserted };
+}

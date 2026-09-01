@@ -24,6 +24,7 @@ export interface AppStateValue {
   toggleConsent: (key: keyof Consent) => void;
   deleteBodyData: () => void;
   markProfileSetupDone: () => void;
+  refreshProducts: () => Promise<void>;
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null);
@@ -71,6 +72,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const refreshProducts = useCallback(async () => {
+    try {
+      setProducts(await fetchProducts());
+    } catch {
+      showToast('Could not refresh the catalog — try again');
+    }
+  }, [showToast]);
+
   const toggleSave = useCallback((id: number) => {
     const has = savedProductIds.includes(id);
     showToast(has ? 'Removed from saved' : 'Saved for later');
@@ -92,9 +101,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppStateValue>(() => ({
     ready, products, savedProductIds, consent, profileSetupDone, toast, searchQuery,
-    setSearchQuery, showToast, toggleSave, toggleConsent, deleteBodyData, markProfileSetupDone,
+    setSearchQuery, showToast, toggleSave, toggleConsent, deleteBodyData, markProfileSetupDone, refreshProducts,
   }), [ready, products, savedProductIds, consent, profileSetupDone, toast, searchQuery, showToast,
-    toggleSave, toggleConsent, deleteBodyData, markProfileSetupDone]);
+    toggleSave, toggleConsent, deleteBodyData, markProfileSetupDone, refreshProducts]);
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
 }
