@@ -1,20 +1,45 @@
 // Supabase Edge Function (Deno). Deploy with:
 //   supabase functions deploy search-products
 // Requires secrets: SUPABASE_URL (auto-provided), SUPABASE_SERVICE_ROLE_KEY,
-// plus per-store credentials — see amazonPaapi.ts / flipkartAffiliate.ts.
+// plus per-store credentials — see amazonPaapi.ts / flipkartAffiliate.ts —
+// and optionally MOCK_MARKETPLACES for dev/demo mock mode (see mockData.ts).
 //
 // Real multi-item catalog search across Amazon and Flipkart via their
 // official affiliate/product APIs — this is what replaced the hardcoded
 // demo product list on Discover. Deliberately does NOT fall back to mock/
-// placeholder results when a store's credentials aren't set: the entire
-// point of this function is that the catalog only ever holds real listings,
-// so an unconfigured store returns an honest "not configured" response
-// instead. Myntra/AJIO/Meesho/Nykaa Fashion have no public catalog API —
-// those stay on fetch-product's single-URL paste flow.
+// placeholder results when a store's credentials aren't set (unless
+// MOCK_MARKETPLACES is explicitly on): the entire point of this function is
+// that the catalog only ever holds real listings, so an unconfigured store
+// returns an honest "not configured" response instead. Myntra/AJIO/Meesho/
+// Nykaa Fashion have no public catalog API — those stay on fetch-product's
+// single-URL paste flow.
+//
+// Request contract:  { query: string, marketplace?: 'amazon' | 'flipkart' | 'all' }
+//   - `marketplace` defaults to 'all' when omitted.
+//   - 400 only for malformed input (missing/empty query, query over 200
+//     chars, or an unrecognized marketplace value).
+//   - Otherwise always 200 — per-provider outcomes (including "not
+//     configured" or an upstream failure) live inside `providers`, not the
+//     HTTP status, so one provider's trouble never masks the other's
+//     results.
+//   - 500 only for a genuine unhandled error, with a sanitized message —
+//     full detail (which may include upstream error bodies) goes to
+//     console.error server-side only, never to the client.
+//
+// Response contract:
+//   {
+//     query: string,
+//     mock: boolean,
+//     results: StoreListing[],           // merged across providers
+//     providers: {
+//       amazon:   { status, count, upserted, message? },
+//       flipkart: { status, count, upserted, message? },
+//     },
+//   }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { isAmazonConfigured, searchAmazon } from './amazonPaapi.ts';
-import { isFlipkartConfigured, searchFlipkart } from './flipkartAffiliate.ts';
+import { isMockMode } from './mockData.ts';
+import { runMarketplaceSearch, stripControlChars, type Marketplace, type ProviderResult, type Store } from './orchestrator.ts';
 import type { StoreListing } from './types.ts';
 
 const supabaseAdmin = createClient(
@@ -27,6 +52,9 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const MAX_QUERY_LENGTH = 200;
+const VALID_MARKETPLACES: Marketplace[] = ['amazon', 'flipkart', 'all'];
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -34,14 +62,10 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-type Store = 'amazon' | 'flipkart';
-
-const PROVIDERS: Record<Store, { configured: () => boolean; search: (q: string) => Promise<StoreListing[]>; label: string }> = {
-  amazon: { configured: isAmazonConfigured, search: searchAmazon, label: 'Amazon' },
-  flipkart: { configured: isFlipkartConfigured, search: searchFlipkart, label: 'Flipkart' },
-};
-
-async function upsertListings(listings: StoreListing[]): Promise<number> {
+// Upserts one provider's listings only — a failure here downgrades that
+// provider's own status to 'error' (handled by the caller) without ever
+// touching, or being able to lose, another provider's already-fetched rows.
+async function upsertListings(store: Store, listings: StoreListing[]): Promise<number> {
   if (listings.length === 0) return 0;
   const { error } = await supabaseAdmin.from('products').upsert(
     listings.map((l) => ({
@@ -54,7 +78,12 @@ async function upsertListings(listings: StoreListing[]): Promise<number> {
       color: l.color,
       product_url: l.productUrl,
       image_url: l.imageUrl,
-      source: `${l.store.toLowerCase()}-affiliate`,
+      // Reuses the existing free-text `source` column (no schema change) —
+      // mock listings get a distinct `-mock` suffix so they're at least
+      // grep-able/filterable even though there's no structural (FK/enum)
+      // separation from real rows. See schema.sql and README for the
+      // "never enable MOCK_MARKETPLACES in production" warning.
+      source: `${store}-${l.source === 'mock' ? 'mock' : 'affiliate'}`,
       scraped_at: new Date().toISOString(),
     })),
     { onConflict: 'product_url' },
@@ -63,32 +92,82 @@ async function upsertListings(listings: StoreListing[]): Promise<number> {
   return listings.length;
 }
 
+interface ProviderResponse {
+  status: ProviderResult['status'];
+  count: number;
+  upserted: number;
+  message?: string;
+}
+
+async function upsertAndReport(store: Store, result: ProviderResult): Promise<ProviderResponse> {
+  const base: ProviderResponse = {
+    status: result.status,
+    count: result.listings.length,
+    upserted: 0,
+    ...(result.message ? { message: result.message } : {}),
+  };
+
+  if (result.listings.length === 0) return base;
+
+  try {
+    base.upserted = await upsertListings(store, result.listings);
+  } catch (err) {
+    console.error(`[search-products] DB upsert failed for ${store}:`, err);
+    base.status = 'error';
+    base.message = 'Fetched results but failed to save them to the catalog.';
+  }
+
+  return base;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
+  let body: unknown;
   try {
-    const { query, store } = await req.json();
-    if (!query || typeof query !== 'string') {
-      return json({ error: 'Missing query' }, 400);
-    }
+    body = await req.json();
+  } catch {
+    return json({ error: 'Request body must be valid JSON.' }, 400);
+  }
 
-    const provider = PROVIDERS[store as Store];
-    if (!provider) {
-      return json({ error: `Unknown store: ${store}. Supported: amazon, flipkart.` }, 400);
-    }
+  const { query, marketplace: rawMarketplace } = (body ?? {}) as { query?: unknown; marketplace?: unknown };
 
-    if (!provider.configured()) {
-      return json({
-        error: 'not_configured',
-        message: `${provider.label} search isn't connected yet — affiliate API credentials aren't set.`,
-      }, 501);
-    }
+  if (typeof query !== 'string' || query.trim().length === 0) {
+    return json({ error: 'Missing or empty query.' }, 400);
+  }
+  if (query.length > MAX_QUERY_LENGTH) {
+    return json({ error: `Query too long — max ${MAX_QUERY_LENGTH} characters.` }, 400);
+  }
 
-    const listings = await provider.search(query);
-    const upserted = await upsertListings(listings);
+  // marketplace defaults to 'all' when omitted; an explicit-but-unrecognized
+  // value is a 400, not a silent fallback.
+  const marketplace = (rawMarketplace ?? 'all') as Marketplace;
+  if (typeof marketplace !== 'string' || !VALID_MARKETPLACES.includes(marketplace)) {
+    return json({ error: `Unknown marketplace: ${String(rawMarketplace)}. Supported: amazon, flipkart, all.` }, 400);
+  }
 
-    return json({ store, query, count: listings.length, upserted });
+  // Strip control characters up front — this is the value used for the
+  // actual provider search calls, any logging, and the echoed `query` field
+  // in the response, so a log-injection payload never reaches a log line.
+  const safeQuery = stripControlChars(query.trim());
+
+  try {
+    const { results, providers } = await runMarketplaceSearch(safeQuery, marketplace);
+
+    const stores = Object.keys(providers) as Store[];
+    const providerEntries = await Promise.all(
+      stores.map(async (store): Promise<[Store, ProviderResponse]> => [store, await upsertAndReport(store, providers[store])]),
+    );
+    const providerResponses = Object.fromEntries(providerEntries) as Record<Store, ProviderResponse>;
+
+    return json({
+      query: safeQuery,
+      mock: isMockMode(),
+      results,
+      providers: providerResponses,
+    });
   } catch (err) {
-    return json({ error: String(err) }, 500);
+    console.error(`[search-products] unhandled error for query "${safeQuery}":`, err);
+    return json({ error: 'Search failed unexpectedly. Please try again.' }, 500);
   }
 });

@@ -9,12 +9,18 @@ export default function ProductCard({ product }: { product: Product }) {
   const { savedProductIds, toggleSave } = useAppState();
 
   const isSaved = savedProductIds.includes(product.id);
+  const isDemo = product.source?.endsWith('-mock') ?? false;
 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)', display: 'flex', flexDirection: 'column' }}>
       <div onClick={() => navigate(`/product/${product.id}`)} style={{ cursor: 'pointer', position: 'relative' }}>
         <ProductImage product={product} ratio="3/4" radius={0}>
-          <span style={{ position: 'absolute', top: 8, left: 8, background: '#fff', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 600, color: 'var(--ink-soft)', fontFamily: "'Sora',sans-serif" }}>{product.store}</span>
+          <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 5 }}>
+            <span style={{ background: '#fff', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 600, color: 'var(--ink-soft)', fontFamily: "'Sora',sans-serif" }}>{product.store}</span>
+            {isDemo && (
+              <span style={{ background: 'var(--amber-soft)', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, color: 'var(--amber-text)', fontFamily: "'Sora',sans-serif" }}>Demo</span>
+            )}
+          </div>
           <button
             onClick={(e) => { e.stopPropagation(); toggleSave(product.id); }}
             style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, borderRadius: '50%', border: 'none', background: '#fff', fontSize: 13, color: isSaved ? 'var(--accent-dark)' : 'var(--ink-faint)' }}

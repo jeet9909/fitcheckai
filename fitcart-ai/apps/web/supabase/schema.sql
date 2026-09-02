@@ -64,7 +64,13 @@ create table products (
   product_url text unique,
   image_url text,
   size_chart jsonb,
-  source text not null default 'curated', -- 'curated' | 'scraped'
+  source text not null default 'curated', -- 'curated' | 'scraped' | 'amazon-affiliate' | 'flipkart-affiliate' | 'amazon-mock' | 'flipkart-mock'
+  -- '*-mock' rows are written only when the search-products Edge Function's
+  -- MOCK_MARKETPLACES dev/demo flag is on (see supabase/functions/search-
+  -- products/mockData.ts) — this reuses the existing free-text column
+  -- rather than a schema migration, so there is no structural (FK/enum)
+  -- separation between real and mock rows beyond this string. Never enable
+  -- MOCK_MARKETPLACES on a production project.
   scraped_at timestamptz
 );
 

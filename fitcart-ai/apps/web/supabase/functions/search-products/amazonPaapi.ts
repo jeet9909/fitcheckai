@@ -1,159 +1,204 @@
-// Amazon Product Advertising API v5 — SearchItems.
+// Amazon Creators API — catalog/v1/searchItems.
 //
-// Real, no-fake-data integration: requires an approved Amazon Associates
-// account with live PA-API access (Amazon only grants API credentials once
-// the Associates account has 3+ qualifying sales in the trailing 180 days —
-// this is Amazon's own eligibility rule, not something this code can work
-// around). Until AMAZON_PAAPI_ACCESS_KEY / AMAZON_PAAPI_SECRET_KEY /
-// AMAZON_PAAPI_PARTNER_TAG are set as secrets, isAmazonConfigured() is
-// false and the caller (index.ts) returns an honest "not configured"
-// response — never placeholder/mock product data, since the whole point of
-// this function is replacing dummy listings with real ones.
+// ---------------------------------------------------------------------------
+// WHY THIS FILE LOOKS NOTHING LIKE TYPICAL "PA-API v5" SAMPLE CODE
+// ---------------------------------------------------------------------------
+// This file used to implement Product Advertising API v5 (AWS Signature
+// Version 4 request signing). PA-API v5 was deprecated April 30, 2026 and
+// fully retired May 15, 2026 — every PA-API v5 call now returns a hard
+// `403 AccessDeniedException`, unconditionally, regardless of how correct
+// the SigV4 implementation is. If you find PA-API v5 sample code elsewhere
+// (blog posts, older SDKs, AI training data), it will not work against a
+// live account anymore. See:
+//   - https://affiliate-program.amazon.com/creatorsapi/docs/en-us/paapiv5-deprecation
+//   - https://affiliate-program.amazon.com/creatorsapi/docs/en-us/migrating-to-creatorsapi-from-paapi
+//   - https://dev.to/th3nate/amazon-pa-api-v5-is-shutting-down-april-30-2026-here-is-what-changes-at-the-auth-layer-22ek
 //
-// UNVERIFIED against a live account — the request-signing algorithm below
-// (AWS Signature Version 4) is implemented from Amazon's published PA-API
-// v5 spec, which has been stable for years, but has not been exercised
-// against a real response here. Confirm against a live account before
-// relying on it.
+// The replacement is the Amazon Creators API, which uses OAuth 2.0
+// client_credentials (Login-with-Amazon style), not AWS SigV4. There are no
+// AWS Access/Secret Keys involved at all — old PA-API credentials do not
+// carry over; this is a hard cutover requiring a new app registration at
+// Associates Central -> Tools -> CreatorsAPI -> Create App.
+//
+// Eligibility bar is also materially different (and harder to *maintain*,
+// not just reach): PA-API v5 required 3+ qualifying sales in the trailing
+// 180 days. Creators API requires 10+ qualified sales in the trailing 30
+// days — a rolling window, so access is temporarily revoked if a 30-day
+// window passes with fewer than 10 sales, even for a previously-approved
+// account. See supabase/README.md for the full setup writeup.
+//
+// UNVERIFIED / JUDGMENT-CALL ITEMS (be aware before relying on this in
+// production — flagged explicitly rather than silently assumed correct):
+//   1. Token endpoint: `AMAZON_CREATORS_TOKEN_URL` defaults to
+//      `https://api.amazon.com/auth/o2/token` (the standard Login-with-
+//      Amazon token endpoint). We could not confirm during this pass whether
+//      the India marketplace uses a region-specific token host — confirm
+//      against your actual Associates Central region docs and override via
+//      the env var if needed.
+//   2. Search endpoint host: `https://creatorsapi.amazon/catalog/v1/searchItems`
+//      per the migration guide's field-naming examples. Not exercised
+//      against a live account.
+//   3. `resources` array and response field names below are mechanically
+//      derived from the old PA-API v5 PascalCase names using the
+//      lowerCamelCase convention the migration guide documents (e.g.
+//      `ItemInfo.Title` -> `itemInfo.title`). This is a systematic rename,
+//      not a guess, but it is still unverified against a live response —
+//      confirm once you have Creators API access.
+// ---------------------------------------------------------------------------
 
 import type { StoreListing } from './types.ts';
 
-const SERVICE = 'ProductAdvertisingAPI';
-const TARGET = 'com.amazon.paapi5.v1.ProductAdvertisingAPIv1.SearchItems';
-const PATH = '/paapi5/searchitems';
+const DEFAULT_TOKEN_URL = 'https://api.amazon.com/auth/o2/token';
+const SEARCH_URL = 'https://creatorsapi.amazon/catalog/v1/searchItems';
+const TOKEN_SCOPE = 'creatorsapi::default';
+
+// Refresh the cached token this many ms before its actual expiry, so a
+// request never races a token that expires mid-flight.
+const TOKEN_REFRESH_BUFFER_MS = 60_000;
 
 function env(name: string, fallback = ''): string {
   return Deno.env.get(name) ?? fallback;
 }
 
 export function isAmazonConfigured(): boolean {
-  return Boolean(env('AMAZON_PAAPI_ACCESS_KEY') && env('AMAZON_PAAPI_SECRET_KEY') && env('AMAZON_PAAPI_PARTNER_TAG'));
+  return Boolean(
+    env('AMAZON_CREATORS_CLIENT_ID') &&
+    env('AMAZON_CREATORS_CLIENT_SECRET') &&
+    env('AMAZON_CREATORS_PARTNER_TAG'),
+  );
 }
 
-function toHex(bytes: ArrayBuffer | Uint8Array): string {
-  return Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, '0')).join('');
+// Module-scope singleton — cached across invocations within the same Edge
+// Function isolate so we don't fetch a fresh OAuth token on every search
+// request (tokens are valid ~3600s per Amazon's docs).
+let tokenCache: { token: string; expiresAt: number } | null = null;
+
+interface TokenResponse {
+  access_token?: string;
+  expires_in?: number;
+  token_type?: string;
+  error?: string;
+  error_description?: string;
 }
 
-async function sha256Hex(message: string): Promise<string> {
-  return toHex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(message)));
-}
+async function fetchAccessToken(): Promise<string> {
+  const clientId = env('AMAZON_CREATORS_CLIENT_ID');
+  const clientSecret = env('AMAZON_CREATORS_CLIENT_SECRET');
+  const tokenUrl = env('AMAZON_CREATORS_TOKEN_URL', DEFAULT_TOKEN_URL);
 
-async function hmac(key: Uint8Array, message: string): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.importKey('raw', key as BufferSource, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message)));
-}
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    scope: TOKEN_SCOPE,
+    client_id: clientId,
+    client_secret: clientSecret,
+  });
 
-async function signingKey(secretKey: string, dateStamp: string, region: string): Promise<Uint8Array> {
-  const kDate = await hmac(new TextEncoder().encode(`AWS4${secretKey}`), dateStamp);
-  const kRegion = await hmac(kDate, region);
-  const kService = await hmac(kRegion, SERVICE);
-  return hmac(kService, 'aws4_request');
-}
+  const res = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
 
-interface AmazonItem {
-  ItemInfo?: {
-    Title?: { DisplayValue?: string };
-    ByLineInfo?: { Brand?: { DisplayValue?: string } };
+  const data: TokenResponse = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.access_token) {
+    // Never include clientSecret (or any part of the request body) in the
+    // thrown message — it propagates to logs and, if a caller isn't
+    // careful, potentially to a client-facing error.
+    throw new Error(`Amazon Creators API token request failed: ${res.status} ${data.error ?? ''} ${data.error_description ?? ''}`.trim());
+  }
+
+  const expiresInMs = (data.expires_in ?? 3600) * 1000;
+  tokenCache = {
+    token: data.access_token,
+    expiresAt: Date.now() + expiresInMs,
   };
-  Images?: { Primary?: { Large?: { URL?: string } } };
-  Offers?: { Listings?: { Price?: { Amount?: number }; SavingBasis?: { Amount?: number } }[] };
-  DetailPageURL?: string;
+  return tokenCache.token;
+}
+
+function getAccessToken(): Promise<string> {
+  if (tokenCache && tokenCache.expiresAt - TOKEN_REFRESH_BUFFER_MS > Date.now()) {
+    return Promise.resolve(tokenCache.token);
+  }
+  return fetchAccessToken();
+}
+
+// Exposed for tests only — lets orchestrator.test.ts / amazonPaapi.test.ts
+// assert token caching/reuse without reaching into module-private state.
+export function __resetTokenCacheForTests(): void {
+  tokenCache = null;
+}
+
+interface AmazonCreatorsItem {
+  itemInfo?: {
+    title?: { displayValue?: string };
+    byLineInfo?: { brand?: { displayValue?: string } };
+  };
+  images?: { primary?: { large?: { url?: string } } };
+  offers?: { listings?: { price?: { amount?: number }; savingBasis?: { amount?: number } }[] };
+  detailPageUrl?: string;
+}
+
+interface AmazonCreatorsSearchResponse {
+  searchResult?: { items?: AmazonCreatorsItem[] };
 }
 
 export async function searchAmazon(query: string): Promise<StoreListing[]> {
-  const accessKey = env('AMAZON_PAAPI_ACCESS_KEY');
-  const secretKey = env('AMAZON_PAAPI_SECRET_KEY');
-  const partnerTag = env('AMAZON_PAAPI_PARTNER_TAG');
-  // India defaults — PA-API signs India-marketplace requests against
-  // eu-west-1, not us-east-1 (a well-documented Amazon quirk, not a typo).
-  // Override via secrets for a different marketplace.
-  const host = env('AMAZON_PAAPI_HOST', 'webservices.amazon.in');
-  const region = env('AMAZON_PAAPI_REGION', 'eu-west-1');
-  const marketplace = env('AMAZON_PAAPI_MARKETPLACE', 'www.amazon.in');
+  const partnerTag = env('AMAZON_CREATORS_PARTNER_TAG');
+  const marketplace = env('AMAZON_CREATORS_MARKETPLACE', 'www.amazon.in');
 
-  const payload = JSON.stringify({
-    Keywords: query,
-    SearchIndex: 'Apparel',
-    ItemCount: 10,
-    PartnerTag: partnerTag,
-    PartnerType: 'Associates',
-    Marketplace: marketplace,
-    Resources: [
-      'ItemInfo.Title',
-      'ItemInfo.ByLineInfo',
-      'Images.Primary.Large',
-      'Offers.Listings.Price',
-      'Offers.Listings.SavingBasis',
+  const token = await getAccessToken();
+
+  const requestBody = {
+    keywords: query,
+    partnerTag,
+    marketplace,
+    itemCount: 10,
+    // lowerCamelCase mirror of the old PA-API v5 `Resources` array — see the
+    // file-header comment for why these are mechanically derived rather
+    // than confirmed against live Creators API docs.
+    resources: [
+      'itemInfo.title',
+      'itemInfo.byLineInfo',
+      'images.primary.large',
+      'offers.listings.price',
+      'offers.listings.savingBasis',
     ],
-  });
+  };
 
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-  const dateStamp = amzDate.slice(0, 8);
-
-  const canonicalHeaders =
-    `content-encoding:amz-1.0\n` +
-    `content-type:application/json; charset=utf-8\n` +
-    `host:${host}\n` +
-    `x-amz-date:${amzDate}\n` +
-    `x-amz-target:${TARGET}\n`;
-  const signedHeaders = 'content-encoding;content-type;host;x-amz-date;x-amz-target';
-
-  const canonicalRequest = [
-    'POST',
-    PATH,
-    '',
-    canonicalHeaders,
-    signedHeaders,
-    await sha256Hex(payload),
-  ].join('\n');
-
-  const credentialScope = `${dateStamp}/${region}/${SERVICE}/aws4_request`;
-  const stringToSign = [
-    'AWS4-HMAC-SHA256',
-    amzDate,
-    credentialScope,
-    await sha256Hex(canonicalRequest),
-  ].join('\n');
-
-  const key = await signingKey(secretKey, dateStamp, region);
-  const signature = toHex(await hmac(key, stringToSign));
-
-  const authorization = `AWS4-HMAC-SHA256 Credential=${accessKey}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-
-  const res = await fetch(`https://${host}${PATH}`, {
+  const res = await fetch(SEARCH_URL, {
     method: 'POST',
     headers: {
-      'content-encoding': 'amz-1.0',
-      'content-type': 'application/json; charset=utf-8',
-      host,
-      'x-amz-date': amzDate,
-      'x-amz-target': TARGET,
-      authorization,
+      Authorization: `Bearer ${token}`,
+      'x-marketplace': marketplace,
+      'Content-Type': 'application/json',
     },
-    body: payload,
+    body: JSON.stringify(requestBody),
   });
 
   if (!res.ok) {
-    throw new Error(`Amazon PA-API search failed: ${res.status} ${await res.text()}`);
+    // Read the body for our own diagnostics but never forward it verbatim
+    // to the caller — it could echo back request details.
+    const bodyText = await res.text().catch(() => '');
+    throw new Error(`Amazon Creators API search failed: ${res.status}${bodyText ? ` ${bodyText.slice(0, 200)}` : ''}`);
   }
 
-  const data = await res.json();
-  const items: AmazonItem[] = data?.SearchResult?.Items ?? [];
+  const data: AmazonCreatorsSearchResponse = await res.json();
+  const items = data?.searchResult?.items ?? [];
 
   return items
     .map((item): StoreListing | null => {
-      const name = item.ItemInfo?.Title?.DisplayValue;
-      const productUrl = item.DetailPageURL;
+      const name = item.itemInfo?.title?.displayValue;
+      const productUrl = item.detailPageUrl;
       if (!name || !productUrl) return null;
-      const listing = item.Offers?.Listings?.[0];
+      const listing = item.offers?.listings?.[0];
       return {
         name,
-        brand: item.ItemInfo?.ByLineInfo?.Brand?.DisplayValue ?? 'Unknown',
-        price: Math.round(listing?.Price?.Amount ?? 0),
-        mrp: Math.round(listing?.SavingBasis?.Amount ?? listing?.Price?.Amount ?? 0),
+        brand: item.itemInfo?.byLineInfo?.brand?.displayValue ?? 'Unknown',
+        price: Math.round(listing?.price?.amount ?? 0),
+        mrp: Math.round(listing?.savingBasis?.amount ?? listing?.price?.amount ?? 0),
         color: '',
-        imageUrl: item.Images?.Primary?.Large?.URL ?? null,
+        imageUrl: item.images?.primary?.large?.url ?? null,
         productUrl,
         store: 'Amazon',
       };

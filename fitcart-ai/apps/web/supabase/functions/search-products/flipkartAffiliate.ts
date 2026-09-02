@@ -44,7 +44,12 @@ export async function searchFlipkart(query: string): Promise<StoreListing[]> {
   });
 
   if (!res.ok) {
-    throw new Error(`Flipkart affiliate search failed: ${res.status} ${await res.text()}`);
+    // Cap the upstream body the same way amazonPaapi.ts does — this text is
+    // only ever surfaced via console.error (never to the client, see
+    // orchestrator.ts's sanitizeErrorMessage), but bounding it avoids an
+    // unbounded upstream response blowing up a log line.
+    const bodyText = await res.text().catch(() => '');
+    throw new Error(`Flipkart affiliate search failed: ${res.status}${bodyText ? ` ${bodyText.slice(0, 200)}` : ''}`);
   }
 
   const data = await res.json();

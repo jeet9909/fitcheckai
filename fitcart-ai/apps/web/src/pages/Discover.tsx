@@ -2,64 +2,7 @@ import { useMemo, useState } from 'react';
 import { BUCKETS, STORES } from '../data/products';
 import { useAppState } from '../state/AppState';
 import ProductCard from '../components/ProductCard';
-
-// Amazon/Flipkart live search (StoreSearch) is commented out below until
-// real affiliate API credentials are available to test against — see
-// search-products Edge Function and supabase/README.md. Uncomment
-// StoreSearch, its `searchStoreProducts` import from '../lib/api', and its
-// <StoreSearch /> usage in the JSX below to re-enable.
-//
-// function StoreSearch() {
-//   const { showToast, refreshProducts } = useAppState();
-//   const [query, setQuery] = useState('');
-//   const [store, setStore] = useState<'amazon' | 'flipkart'>('amazon');
-//   const [searching, setSearching] = useState(false);
-//
-//   const runSearch = async () => {
-//     if (!query.trim()) return;
-//     setSearching(true);
-//     const result = await searchStoreProducts(query.trim(), store);
-//     setSearching(false);
-//
-//     if (!result.ok) {
-//       showToast(result.message);
-//       return;
-//     }
-//     if (result.count === 0) {
-//       showToast(`No results from ${store === 'amazon' ? 'Amazon' : 'Flipkart'} for "${query}"`);
-//       return;
-//     }
-//     showToast(`Found ${result.count} result(s) from ${store === 'amazon' ? 'Amazon' : 'Flipkart'}`);
-//     await refreshProducts();
-//   };
-//
-//   return (
-//     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-//       <select
-//         value={store}
-//         onChange={(e) => setStore(e.target.value as 'amazon' | 'flipkart')}
-//         style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, background: 'var(--surface)' }}
-//       >
-//         <option value="amazon">Amazon</option>
-//         <option value="flipkart">Flipkart</option>
-//       </select>
-//       <input
-//         value={query}
-//         onChange={(e) => setQuery(e.target.value)}
-//         onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-//         placeholder="Search live listings, e.g. men's shirt"
-//         style={{ flex: '1 1 240px', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--surface)' }}
-//       />
-//       <button
-//         onClick={runSearch}
-//         disabled={searching || !query.trim()}
-//         style={{ border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 13, padding: '8px 16px', borderRadius: 8, opacity: searching ? 0.6 : 1 }}
-//       >
-//         {searching ? 'Searching…' : 'Search'}
-//       </button>
-//     </div>
-//   );
-// }
+import StoreSearch from '../components/StoreSearch';
 
 export default function Discover() {
   const { products, searchQuery } = useAppState();
@@ -81,11 +24,7 @@ export default function Discover() {
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Discover</h1>
         <span style={{ fontSize: 13, color: 'var(--ink-faint)' }}>{filteredProducts.length} item(s) in your catalog</span>
       </div>
-      {/* Commented out until real Amazon/Flipkart affiliate API credentials
-          are available to test against — see StoreSearch above and
-          supabase/README.md. Meesho/AJIO/Myntra/Nykaa Fashion are covered
-          separately by the paste-a-link flow on Home (fetch-product). */}
-      {/* <StoreSearch /> */}
+      <StoreSearch />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
         {BUCKETS.map((b) => {
           const active = categoryFilter === b;
