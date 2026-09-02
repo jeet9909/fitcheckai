@@ -29,7 +29,7 @@ export default function ProductDetail() {
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} style={{ width: 64, height: 64, borderRadius: 8, overflow: 'hidden', background: 'var(--surface-alt)', border: i === 0 ? '2px solid var(--ink)' : '1px solid var(--border)' }}>
-                <img src={productImageUrl(product, 128, 128)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={product.imageUrl || productImageUrl(product, 128, 128)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             ))}
           </div>
