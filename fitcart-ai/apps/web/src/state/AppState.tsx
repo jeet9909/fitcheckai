@@ -61,14 +61,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   }, [showToast]);
 
   useEffect(() => {
-    Promise.all([fetchProducts(), fetchState()]).then(([p, s]) => {
-      setProducts(p);
-      applyState(s);
-      setReady(true);
-    }).catch(() => {
-      setReady(true);
+    // Independent, not Promise.all: fetchState() hits the legacy per-user
+    // state endpoints (/api/state — a Cloudflare Pages Functions route with
+    // no equivalent on this app's current Netlify/Supabase hosting), which
+    // 404s there. Promise.all would let that single rejection blank out the
+    // product catalog too, even though fetchProducts() (the real Supabase
+    // catalog fetch) succeeds on its own — each must be allowed to fail
+    // without taking the other down.
+    fetchProducts().then(setProducts).catch(() => {
       showToast('Could not reach the server — try refreshing');
     });
+    fetchState().then(applyState).catch(() => {
+      // No local/session state backend on this deployment — save/consent/
+      // profile-setup state just won't load; the catalog isn't affected.
+    }).finally(() => setReady(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
