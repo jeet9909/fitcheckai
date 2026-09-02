@@ -161,12 +161,12 @@ function ListingRow({ listing, matchedProduct }: { listing: StoreListing; matche
         ) : !allowed ? (
           <span style={{ fontSize: 11, color: 'var(--ink-faint)' }} title="Link unavailable">Link unavailable</span>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             {matchedProduct ? (
               <button
                 type="button"
                 onClick={() => navigate('/setup', { state: { productId: matchedProduct.id } })}
-                style={{ border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: 11, padding: '5px 11px', borderRadius: 7, cursor: 'pointer' }}
+                style={{ border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: 12, padding: '8px 14px', borderRadius: 7, cursor: 'pointer', minHeight: 32 }}
               >
                 See it on me
               </button>
@@ -179,15 +179,17 @@ function ListingRow({ listing, matchedProduct }: { listing: StoreListing; matche
               // permanent state.
               <span style={{ fontSize: 10, color: 'var(--ink-faint)' }}>Preparing in-app preview…</span>
             )}
-            {/* Secondary, deliberately subdued: the real store is the actual
-                final purchase step (not removed), but it must never be the
-                first or only action a search result offers — see
-                canExplore/"See it on me" above for the primary path. */}
+            {/* Secondary, deliberately subdued and spaced well clear of the
+                primary button above (a cramped gap here was getting
+                mis-tapped for "See it on me" on mobile) — the real store is
+                the actual final purchase step (not removed), but it must
+                never be the first, loudest, or accidentally-tapped action a
+                search result offers. */}
             <a
               href={listing.productUrl}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontSize: 10, color: 'var(--ink-faint)', fontWeight: 500 }}
+              style={{ fontSize: 9.5, color: 'var(--ink-faint)', fontWeight: 500, opacity: 0.75, marginTop: 2 }}
             >
               Buy on {listing.store} ↗
             </a>
