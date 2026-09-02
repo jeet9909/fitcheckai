@@ -105,10 +105,10 @@ export interface StoreListing {
   imageUrl: string | null;
   productUrl: string;
   store: 'Amazon' | 'Flipkart';
-  source?: 'live' | 'mock';
+  source?: 'live' | 'mock' | 'scraped';
 }
 
-export type ProviderStatus = 'success' | 'not_configured' | 'error' | 'mock';
+export type ProviderStatus = 'success' | 'not_configured' | 'error' | 'mock' | 'scrape_blocked' | 'scrape_failed';
 
 export interface ProviderResult {
   status: ProviderStatus;
@@ -124,6 +124,30 @@ export interface MarketplaceSearchResult {
   providers: Partial<Record<'amazon' | 'flipkart', ProviderResult>>;
 }
 
+// The backend's own resolveStores() (orchestrator.ts) maps a single-store
+// `marketplace` request to just that one store, and index.ts builds
+// `providers` from `Object.keys(providers)` of whatever resolveStores()
+// returned — so a request for 'amazon' gets back a response whose
+// `providers` object has ONLY an `amazon` key, never a fabricated `flipkart`
+// entry. Client-side fallback/error responses (built below, for cases where
+// we never actually reach the backend, or it returns a malformed body) must
+// mirror that same shape — otherwise a single-store caller (StoreSearch.tsx)
+// would see a phantom status for a provider it never asked about.
+function resolveRequestedStores(marketplace: Marketplace): Array<'amazon' | 'flipkart'> {
+  return marketplace === 'all' ? ['amazon', 'flipkart'] : [marketplace];
+}
+
+function buildFallbackProviders(
+  marketplace: Marketplace,
+  result: ProviderResult,
+): Partial<Record<'amazon' | 'flipkart', ProviderResult>> {
+  const providers: Partial<Record<'amazon' | 'flipkart', ProviderResult>> = {};
+  for (const store of resolveRequestedStores(marketplace)) {
+    providers[store] = result;
+  }
+  return providers;
+}
+
 // Calls the search-products Edge Function (real Amazon PA-API / Flipkart
 // Affiliate API search — see supabase/functions/search-products). Results
 // are upserted server-side into `products`; call fetchProducts() /
@@ -137,10 +161,12 @@ export async function searchMarketplaces(query: string, marketplace: Marketplace
       query,
       mock: false,
       results: [],
-      providers: {
-        amazon: { status: 'not_configured', count: 0, upserted: 0, message: 'Store search isn’t connected yet — backend coming soon' },
-        flipkart: { status: 'not_configured', count: 0, upserted: 0, message: 'Store search isn’t connected yet — backend coming soon' },
-      },
+      providers: buildFallbackProviders(marketplace, {
+        status: 'not_configured',
+        count: 0,
+        upserted: 0,
+        message: 'Store search isn’t connected yet — backend coming soon',
+      }),
     };
   }
 
@@ -162,10 +188,7 @@ export async function searchMarketplaces(query: string, marketplace: Marketplace
       query,
       mock: false,
       results: [],
-      providers: {
-        amazon: { status: 'error', count: 0, upserted: 0, message },
-        flipkart: { status: 'error', count: 0, upserted: 0, message },
-      },
+      providers: buildFallbackProviders(marketplace, { status: 'error', count: 0, upserted: 0, message }),
     };
   }
   if (!data) {
@@ -173,10 +196,7 @@ export async function searchMarketplaces(query: string, marketplace: Marketplace
       query,
       mock: false,
       results: [],
-      providers: {
-        amazon: { status: 'error', count: 0, upserted: 0, message: 'Search failed' },
-        flipkart: { status: 'error', count: 0, upserted: 0, message: 'Search failed' },
-      },
+      providers: buildFallbackProviders(marketplace, { status: 'error', count: 0, upserted: 0, message: 'Search failed' }),
     };
   }
 

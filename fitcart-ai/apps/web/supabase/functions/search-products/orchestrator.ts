@@ -8,12 +8,24 @@ import { isAmazonConfigured, searchAmazon } from './amazonPaapi.ts';
 import { isFlipkartConfigured, searchFlipkart } from './flipkartAffiliate.ts';
 import { generateMockListings, isMockMode } from './mockData.ts';
 import { isAllowedMarketplaceUrl } from './urlAllowlist.ts';
+import { scrapeAmazonSearch } from './scraping/amazonSearchScraper.ts';
+import { scrapeFlipkartSearch } from './scraping/flipkartSearchScraper.ts';
+import type { ScrapeOutcome } from './scraping/types.ts';
 import type { StoreListing } from './types.ts';
 
 export type Store = 'amazon' | 'flipkart';
 export type Marketplace = Store | 'all';
 
-export type ProviderStatus = 'success' | 'not_configured' | 'error' | 'mock';
+// 'scrape_blocked'/'scrape_failed' are the honest outcomes of the scraping
+// fallback (see runProvider below) — used only when the real API isn't
+// configured and a live scrape attempt didn't produce usable results. They
+// are deliberately distinct from 'not_configured' (which now only means
+// "mock is off, not configured, AND we never even got to try scraping" —
+// in practice that no longer happens for amazon/flipkart since a scrape is
+// always attempted, but the status is kept for type/message-shape
+// continuity and in case a future provider has no scraper at all) and from
+// 'error' (which is reserved for the real, configured API path failing).
+export type ProviderStatus = 'success' | 'not_configured' | 'error' | 'mock' | 'scrape_blocked' | 'scrape_failed';
 
 export interface ProviderResult {
   status: ProviderStatus;
@@ -24,6 +36,9 @@ export interface ProviderResult {
 interface ProviderAdapter {
   configured: () => boolean;
   search: (q: string) => Promise<StoreListing[]>;
+  // Best-effort search-results-page scrape used only when `configured()` is
+  // false and mock mode is off — see runProvider. Never called otherwise.
+  scrape: (query: string) => Promise<ScrapeOutcome>;
   label: string;
   // Maps the internal lowercase `store` key to the StoreListing['store']
   // literal each adapter/mock generator uses.
@@ -31,8 +46,20 @@ interface ProviderAdapter {
 }
 
 export const PROVIDERS: Record<Store, ProviderAdapter> = {
-  amazon: { configured: isAmazonConfigured, search: searchAmazon, label: 'Amazon', listingStore: 'Amazon' },
-  flipkart: { configured: isFlipkartConfigured, search: searchFlipkart, label: 'Flipkart', listingStore: 'Flipkart' },
+  amazon: {
+    configured: isAmazonConfigured,
+    search: searchAmazon,
+    scrape: scrapeAmazonSearch,
+    label: 'Amazon',
+    listingStore: 'Amazon',
+  },
+  flipkart: {
+    configured: isFlipkartConfigured,
+    search: searchFlipkart,
+    scrape: scrapeFlipkartSearch,
+    label: 'Flipkart',
+    listingStore: 'Flipkart',
+  },
 };
 
 const ALL_STORES: Store[] = ['amazon', 'flipkart'];
@@ -48,6 +75,38 @@ export function resolveStores(marketplace: Marketplace): Store[] {
 export function stripControlChars(input: string): string {
   // deno-lint-ignore no-control-regex
   return input.replace(/[\x00-\x1F\x7F]/g, '');
+}
+
+// Upper bounds for scraped string fields before they're tagged `source:
+// 'scraped'`, allowlist-checked, persisted to the DB, and echoed back in
+// the API response. Unlike `query` (a bounded user input already validated
+// in index.ts) or the real affiliate-API responses (schema-shaped JSON from
+// a trusted, credentialed endpoint), these strings are regex/JSON-LD/state-
+// blob extractions from a live third-party HTML page -- a hostile or
+// malfunctioning page could serve a pathologically large or control-
+// character-laden value for any of them.
+const MAX_SCRAPED_FIELD_LENGTH = 300;
+const MAX_SCRAPED_URL_LENGTH = 2000;
+
+function sanitizeScrapedString(input: string, maxLength: number): string {
+  return stripControlChars(input).slice(0, maxLength);
+}
+
+// Applies the same defensive capping/control-char stripping to every string
+// field of a scraped listing before it's ever allowlist-checked or
+// persisted -- see MAX_SCRAPED_FIELD_LENGTH's comment for why this matters
+// specifically for the scraping path (mock and live-API listings don't go
+// through this, since mock data is generated in-process and real-API
+// listings come from a trusted, schema-shaped response).
+function sanitizeScrapedListing(listing: StoreListing): StoreListing {
+  return {
+    ...listing,
+    name: sanitizeScrapedString(listing.name, MAX_SCRAPED_FIELD_LENGTH),
+    brand: sanitizeScrapedString(listing.brand, MAX_SCRAPED_FIELD_LENGTH),
+    color: sanitizeScrapedString(listing.color, MAX_SCRAPED_FIELD_LENGTH),
+    imageUrl: listing.imageUrl ? sanitizeScrapedString(listing.imageUrl, MAX_SCRAPED_URL_LENGTH) : null,
+    productUrl: sanitizeScrapedString(listing.productUrl, MAX_SCRAPED_URL_LENGTH),
+  };
 }
 
 function sanitizeErrorMessage(_err: unknown): string {
@@ -93,10 +152,55 @@ export async function runProvider(store: Store, query: string, mock: boolean): P
   }
 
   if (!provider.configured()) {
+    // No approved API credentials — fall back to a best-effort live scrape
+    // of the store's own search-results page rather than immediately
+    // reporting `not_configured`. This is still an honest outcome either
+    // way: a successful scrape is tagged `source: 'scraped'` (never
+    // conflated with a real API response's `source: 'live'`), and a
+    // blocked/failed scrape says so explicitly rather than silently
+    // returning nothing. See scraping/*SearchScraper.ts for what's actually
+    // been observed live per store.
+    let outcome: ScrapeOutcome;
+    try {
+      outcome = await provider.scrape(safeQuery);
+    } catch (err) {
+      // Defense in depth — provider.scrape() is documented to never throw,
+      // but runProvider's whole contract is that it itself never throws.
+      console.error(`[search-products] ${provider.label} scrape threw unexpectedly for query "${safeQuery}":`, err);
+      return {
+        status: 'scrape_failed',
+        listings: [],
+        message: `${provider.label} isn't connected yet, and the scraping fallback failed unexpectedly.`,
+      };
+    }
+
+    if (outcome.status === 'success' && outcome.listings.length > 0) {
+      const scraped = outcome.listings.map((l) => sanitizeScrapedListing({ ...l, source: 'scraped' as const }));
+      const allowed = filterAllowedListings(store, scraped);
+      if (allowed.length > 0) {
+        return { status: 'success', listings: allowed };
+      }
+      return {
+        status: 'scrape_blocked',
+        listings: [],
+        message: "Scraped results didn't match a trusted store domain.",
+      };
+    }
+
+    if (outcome.status === 'failed') {
+      return {
+        status: 'scrape_failed',
+        listings: [],
+        message: `${provider.label} isn't connected yet, and the scraping fallback failed: ${outcome.reason ?? 'unknown error'}`,
+      };
+    }
+
+    // outcome.status === 'blocked' (or 'success' with zero listings, which
+    // is functionally the same honest "nothing usable" outcome).
     return {
-      status: 'not_configured',
+      status: 'scrape_blocked',
       listings: [],
-      message: `${provider.label} search isn't connected yet.`,
+      message: `${provider.label} isn't connected yet, and the scraping fallback was blocked: ${outcome.reason ?? "couldn't parse a real results page"}`,
     };
   }
 

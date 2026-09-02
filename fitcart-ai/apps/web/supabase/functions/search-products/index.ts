@@ -79,11 +79,14 @@ async function upsertListings(store: Store, listings: StoreListing[]): Promise<n
       product_url: l.productUrl,
       image_url: l.imageUrl,
       // Reuses the existing free-text `source` column (no schema change) —
-      // mock listings get a distinct `-mock` suffix so they're at least
-      // grep-able/filterable even though there's no structural (FK/enum)
-      // separation from real rows. See schema.sql and README for the
-      // "never enable MOCK_MARKETPLACES in production" warning.
-      source: `${store}-${l.source === 'mock' ? 'mock' : 'affiliate'}`,
+      // mock listings get a distinct `-mock` suffix and scraped listings a
+      // `-scraped` suffix so they're at least grep-able/filterable even
+      // though there's no structural (FK/enum) separation from real
+      // affiliate-API rows. See schema.sql and README for the "never enable
+      // MOCK_MARKETPLACES in production" warning; scraped rows carry a
+      // real, allowlist-checked store URL, so — unlike mock — they're safe
+      // to persist as real catalog data (see upsertAndReport below).
+      source: `${store}-${l.source === 'mock' ? 'mock' : l.source === 'scraped' ? 'scraped' : 'affiliate'}`,
       scraped_at: new Date().toISOString(),
     })),
     { onConflict: 'product_url' },
@@ -107,7 +110,19 @@ async function upsertAndReport(store: Store, result: ProviderResult): Promise<Pr
     ...(result.message ? { message: result.message } : {}),
   };
 
-  if (result.listings.length === 0) return base;
+  // Mock listings are never persisted: every mock row for a given store
+  // shares one fixed product_url (see mockData.ts), so upserting them would
+  // let one search's demo text stomp on the next search's demo text in the
+  // shared catalog — different queries (or different users) would silently
+  // overwrite each other's mock rows. They're returned in `results` for the
+  // search panel to render, but the shared products table stays real-only.
+  //
+  // Scraped listings (result.status === 'success' with source: 'scraped')
+  // are NOT skipped here and fall through to the normal upsert path below —
+  // unlike mock data, they point at real, allowlist-checked store URLs
+  // pulled from a live page, so they're legitimate catalog data, just from
+  // a scrape instead of an affiliate API.
+  if (result.status === 'mock' || result.listings.length === 0) return base;
 
   try {
     base.upserted = await upsertListings(store, result.listings);

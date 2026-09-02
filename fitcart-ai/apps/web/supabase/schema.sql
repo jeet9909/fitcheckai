@@ -64,13 +64,19 @@ create table products (
   product_url text unique,
   image_url text,
   size_chart jsonb,
-  source text not null default 'curated', -- 'curated' | 'scraped' | 'amazon-affiliate' | 'flipkart-affiliate' | 'amazon-mock' | 'flipkart-mock'
+  source text not null default 'curated', -- 'curated' | 'scraped' | 'amazon-affiliate' | 'flipkart-affiliate' | 'amazon-mock' | 'flipkart-mock' | 'amazon-scraped' | 'flipkart-scraped'
   -- '*-mock' rows are written only when the search-products Edge Function's
   -- MOCK_MARKETPLACES dev/demo flag is on (see supabase/functions/search-
   -- products/mockData.ts) — this reuses the existing free-text column
   -- rather than a schema migration, so there is no structural (FK/enum)
   -- separation between real and mock rows beyond this string. Never enable
   -- MOCK_MARKETPLACES on a production project.
+  -- '*-scraped' rows (distinct from the plain 'scraped' value used by the
+  -- fetch-product paste-a-link flow) come from search-products' scraping
+  -- fallback (supabase/functions/search-products/scraping/) — used only
+  -- when that store's real affiliate API isn't configured. Unlike mock
+  -- rows, these point at real, allowlist-checked store URLs pulled from a
+  -- live page, so they're persisted as ordinary catalog data.
   scraped_at timestamptz
 );
 

@@ -1,0 +1,99 @@
+// Unit tests for the size-cap and redirect-host-verification helpers added
+// alongside the two search-results scrapers (see amazonSearchScraper.ts /
+// flipkartSearchScraper.ts). These are exercised directly here (rather than
+// only indirectly through the scraper-level tests) since forcing a >5MB
+// response or a monkey-patched `Response.url` through the full scrape flow
+// would be slow/awkward — the scrapers themselves just call these two
+// functions and trust the result, which the orchestrator-level tests
+// already cover end-to-end.
+
+import { assert, assertEquals, assertRejects } from '../_testUtils.ts';
+import { isExpectedHost, parseIndianPrice, readCappedText } from './htmlUtils.ts';
+
+Deno.test('readCappedText: returns the full body when under the cap', async () => {
+  const res = new Response('hello world', { status: 200 });
+  const text = await readCappedText(res, 1024);
+  assertEquals(text, 'hello world');
+});
+
+Deno.test('readCappedText: rejects once the body exceeds the byte cap, instead of buffering it all', async () => {
+  const res = new Response('x'.repeat(1000), { status: 200 });
+  await assertRejects(() => readCappedText(res, 10), 'expected readCappedText to reject a body over the cap');
+});
+
+Deno.test('readCappedText: falls back to res.text() when there is no body stream to bound-check', async () => {
+  const res = new Response(null, { status: 204 });
+  const text = await readCappedText(res, 10);
+  assertEquals(text, '');
+});
+
+Deno.test('isExpectedHost: allows an exact host match', () => {
+  assert(isExpectedHost('https://www.amazon.in/s?k=shirt', 'amazon.in'));
+});
+
+Deno.test('isExpectedHost: allows a subdomain of the expected host', () => {
+  assert(isExpectedHost('https://smile.amazon.in/s?k=shirt', 'amazon.in'));
+});
+
+Deno.test('isExpectedHost: denies a redirect to an unrelated/attacker-controlled host', () => {
+  assert(!isExpectedHost('https://evil.example.com/phish', 'amazon.in'));
+});
+
+Deno.test('isExpectedHost: denies a lookalike host that merely contains the expected host as a substring', () => {
+  assert(!isExpectedHost('https://notamazon.in.evil.example.com/', 'amazon.in'));
+});
+
+Deno.test('isExpectedHost: treats an empty url (no redirect info available, e.g. a manually-built test Response) as passing', () => {
+  assert(isExpectedHost('', 'amazon.in'));
+});
+
+Deno.test('isExpectedHost: denies a malformed URL rather than throwing', () => {
+  assert(!isExpectedHost('not a url', 'amazon.in'));
+});
+
+// Regression tests for two real bugs found in parseIndianPrice:
+//   1. It never rounded, so a fractional scraped price (e.g. "₹599.50")
+//      flowed all the way to `upsertListings`' single `.upsert()` call for
+//      a store and made Postgres reject the *entire* batch, since
+//      `products.price`/`mrp` are `integer not null` columns.
+//   2. Its own docstring example, "Rs. 1,999.00", actually returned null:
+//      the old sanitizer (`text.replace(/[^0-9.]/g, '')`) ran before
+//      stripping "Rs.", so the period in "Rs." survived alongside the
+//      number's own decimal point, producing ".1999.00" -> NaN -> null.
+
+Deno.test('parseIndianPrice: the docstring\'s own "Rs. 1,999.00" example now parses correctly', () => {
+  assertEquals(parseIndianPrice('Rs. 1,999.00'), 1999);
+});
+
+Deno.test('parseIndianPrice: "Rs." with no space before the digits', () => {
+  assertEquals(parseIndianPrice('Rs.1,999.00'), 1999);
+});
+
+Deno.test('parseIndianPrice: "Rs " (no period) still works, as it always did', () => {
+  assertEquals(parseIndianPrice('Rs 1,999.00'), 1999);
+});
+
+Deno.test('parseIndianPrice: "INR" prefix', () => {
+  assertEquals(parseIndianPrice('INR 449'), 449);
+});
+
+Deno.test('parseIndianPrice: a fractional price is rounded to the nearest integer', () => {
+  assertEquals(parseIndianPrice('₹599.50'), 600);
+});
+
+Deno.test('parseIndianPrice: rounds down when the fractional part is under .5', () => {
+  assertEquals(parseIndianPrice('₹599.40'), 599);
+});
+
+Deno.test('parseIndianPrice: the rupee symbol with a comma-separated whole number still works', () => {
+  assertEquals(parseIndianPrice('₹1,999'), 1999);
+});
+
+Deno.test('parseIndianPrice: a plain comma-separated number with no currency marker still works', () => {
+  assertEquals(parseIndianPrice('3,389'), 3389);
+});
+
+Deno.test('parseIndianPrice: an empty/non-numeric string returns null rather than 0 or NaN', () => {
+  assertEquals(parseIndianPrice(''), null);
+  assertEquals(parseIndianPrice('Currently unavailable'), null);
+});
