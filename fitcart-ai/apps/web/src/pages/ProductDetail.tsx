@@ -1,18 +1,43 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { discountLabel, fmt, confidenceBand, toneColor } from '../lib/format';
+import { fetchMatchGroup } from '../lib/api';
 import { useAppState } from '../state/AppState';
 import ProductImage from '../components/ProductImage';
-
-const SIZES = ['S', 'M', 'L', 'XL'];
+import AlsoAvailableAt from '../components/AlsoAvailableAt';
+import SimilarProducts from '../components/SimilarProducts';
+import type { Product } from '../data/products';
 
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { products, savedProductIds, toggleSave } = useAppState();
-  const [selectedSize, setSelectedSize] = useState('M');
+  const [matchGroupMembers, setMatchGroupMembers] = useState<Product[]>([]);
 
   const product = products.find((p) => p.id === Number(id));
+
+  // Co-located with this page's only other data need (the catalog itself,
+  // already loaded into AppState) — this is a small, product-specific
+  // lookup so it gets its own effect keyed on the product id, rather than
+  // being folded into AppState's app-wide catalog load.
+  useEffect(() => {
+    if (!product) {
+      // /product/:id reuses the same mounted component across navigations
+      // between different ids (see App.tsx's single Route), so this guards
+      // against a stale previous product's cross-store matches lingering
+      // on screen while the catalog is (re)loading for a new id.
+      setMatchGroupMembers([]);
+      return;
+    }
+    let cancelled = false;
+    fetchMatchGroup(product.id).then((members) => {
+      if (!cancelled) setMatchGroupMembers(members);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [product]);
+
   if (!product) {
     return <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 28px 80px' }} />;
   }
@@ -62,20 +87,13 @@ export default function ProductDetail() {
               View full listing on {product.store} ↗
             </a>
           )}
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 8 }}>Size</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {SIZES.map((sz) => (
-                <span
-                  key={sz}
-                  onClick={() => setSelectedSize(sz)}
-                  style={{ cursor: 'pointer', border: sz === selectedSize ? '2px solid var(--ink)' : '1px solid var(--border)', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600 }}
-                >
-                  {sz}
-                </span>
-              ))}
-            </div>
-          </div>
+          {/* No real per-product size data exists yet (fetch-product's
+              parsers all hardcode sizeChart: null — see
+              supabase/functions/fetch-product/parsers/*.ts), so there's
+              nothing honest to show here. A clickable S/M/L/XL row with no
+              data behind it would imply real size availability that doesn't
+              exist; omitting it entirely (rather than a fake picker) matches
+              this page's hasRealFitData pattern below. */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 26 }}>
             <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 9 }}>See it on me</button>
             <button onClick={() => toggleSave(product.id)} style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, padding: '14px 18px', borderRadius: 9, color: isSaved ? 'var(--accent-dark)' : 'var(--ink-faint)' }}>{isSaved ? '♥ Saved' : '♡ Save'}</button>
@@ -106,6 +124,8 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
+      <AlsoAvailableAt members={matchGroupMembers} />
+      <SimilarProducts product={product} allProducts={products} />
     </main>
   );
 }

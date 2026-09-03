@@ -12,7 +12,9 @@ import { useAppState } from '../state/AppState';
 export default function Setup() {
   const navigate = useNavigate();
   const location = useLocation();
-  const sourceLink = (location.state as { sourceLink?: string | null } | null)?.sourceLink ?? null;
+  const setupState = location.state as { sourceLink?: string | null; productId?: number | null } | null;
+  const sourceLink = setupState?.sourceLink ?? null;
+  const productId = setupState?.productId ?? null;
   const { markProfileSetupDone } = useAppState();
   const [preview, setPreview] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -26,7 +28,7 @@ export default function Setup() {
 
   const submitSetup = () => {
     markProfileSetupDone();
-    navigate('/processing', { state: { afterRoute: '/result', sourceLink } });
+    navigate('/processing', { state: { afterRoute: '/result', sourceLink, productId } });
   };
 
   return (

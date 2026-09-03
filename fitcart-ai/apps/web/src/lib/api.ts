@@ -74,6 +74,45 @@ export async function fetchProducts(): Promise<Product[]> {
   return req('/products');
 }
 
+// `product_match_groups` / `product_match_members` — manually-curated groups
+// of "this is the same product on another store", added by a backend task
+// running in parallel (public-read RLS, so a plain client query works with
+// the anon key, same as fetchProducts()). Curation is expected to be sparse
+// for a long time, so "this product isn't in any group" is the common case
+// and must resolve fast and quietly — never as an error — rather than
+// forcing every ProductDetail load to wait on/report a failed lookup.
+interface MatchMemberRow {
+  match_group_id: number;
+}
+
+export async function fetchMatchGroup(productId: number): Promise<Product[]> {
+  if (!isSupabaseConfigured || !supabase) return [];
+
+  const { data: membership, error: membershipError } = await supabase
+    .from('product_match_members')
+    .select('match_group_id')
+    .eq('product_id', productId)
+    .limit(1)
+    .maybeSingle();
+  if (membershipError || !membership) return [];
+
+  const { data: members, error: membersError } = await supabase
+    .from('product_match_members')
+    .select('product_id')
+    .eq('match_group_id', (membership as MatchMemberRow).match_group_id)
+    .neq('product_id', productId);
+  if (membersError || !members || members.length === 0) return [];
+
+  const otherIds = (members as { product_id: number }[]).map((m) => m.product_id);
+  const { data: rows, error: productsError } = await supabase
+    .from('products')
+    .select('*')
+    .in('id', otherIds);
+  if (productsError || !rows) return [];
+
+  return (rows as ProductRow[]).map(rowToProduct);
+}
+
 export function fetchState(): Promise<ApiState> {
   return req('/state');
 }

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import PaywallSheet from '../components/PaywallSheet';
 import Placeholder from '../components/Placeholder';
+import { fmt } from '../lib/format';
 import { useAppState } from '../state/AppState';
 import { useAuth } from '../state/AuthState';
 import { supabase } from '../lib/supabase';
@@ -17,17 +18,30 @@ import { startCheckout } from '../lib/checkout';
  */
 export default function Result() {
   const navigate = useNavigate();
-  const { showToast } = useAppState();
+  const location = useLocation();
+  const { products, showToast } = useAppState();
   const { user } = useAuth();
   const [paywallOpen, setPaywallOpen] = useState(false);
 
-  // Mock verdict — replace with the real API response.
+  // Forwarded from ProductDetail/ProductCard/StoreSearch through Setup ->
+  // Processing -> here, so this screen can say which real catalog product
+  // the try-on was actually for. Absent entirely for the upload-only /
+  // paste-a-link flows (no catalog product involved) — that's expected, not
+  // an error.
+  const productId = (location.state as { productId?: number | null } | null)?.productId ?? null;
+  const product = productId != null ? products.find((p) => p.id === productId) ?? null : null;
+
+  // Mock fit verdict — replace with the real render + verdict API response.
+  // Garment identity (name/store/price) is real when we know which catalog
+  // product this render was for; falls back to a placeholder garment only
+  // when there isn't one (upload-only flow).
   const verdict = {
     size: 'L',
     headline: 'Go with L.',
     detail: "Snug across the chest in M. This brand runs about half a size small.",
-    garment: 'H&M Oversized Tee',
-    price: '₹799',
+    garment: product?.name ?? 'H&M Oversized Tee',
+    price: product ? fmt(product.price) : '₹799',
+    store: product?.store ?? 'Myntra',
   };
 
   const handleTryAnotherSize = () => {
@@ -37,7 +51,7 @@ export default function Result() {
     }
     recordRenderUsed();
     showToast(`Re-rendering… ${rendersRemaining()} free look(s) left after this`);
-    navigate('/processing', { state: { afterRoute: '/result' } });
+    navigate('/processing', { state: { afterRoute: '/result', productId } });
   };
 
   const handleShare = () => {
@@ -101,7 +115,7 @@ export default function Result() {
         </div>
 
         <button onClick={handleBuy} className="fc-btn-primary">
-          Buy at Myntra — size {verdict.size} — {verdict.price}
+          Buy at {verdict.store} — size {verdict.size} — {verdict.price}
         </button>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>

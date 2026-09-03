@@ -107,6 +107,103 @@ create policy "products: public read" on products
 -- anon/authenticated roles by default; the service role bypasses RLS entirely.
 
 -- ---------------------------------------------------------------------------
+-- product_match_groups / product_match_members: manual cross-store price-
+-- comparison curation (Phase 2). Deliberately NOT automated similarity
+-- matching — title/image-similarity scoring across stores was evaluated and
+-- rejected as unreliable for this catalog: a false match (silently showing
+-- two different products as "the same item, cheaper elsewhere") is actively
+-- misleading, worse than showing no comparison at all (see D-014: never
+-- present data as more/less trustworthy than it actually is). A group only
+-- ever contains product ids a human curator explicitly submitted via the
+-- curate-match Edge Function — nothing in this schema or that function
+-- computes or suggests which ids belong together.
+-- ---------------------------------------------------------------------------
+create table product_match_groups (
+  id bigint generated always as identity primary key,
+  label text not null,          -- human-readable, e.g. "Levi's 511 Slim Jeans, Indigo"
+  created_by text not null,     -- curator identity/email for accountability
+  created_at timestamptz not null default now()
+);
+
+-- One row per (group, product) membership. A product may belong to at most
+-- one group, period — enforced here at the DB level via `product_id`'s own
+-- `unique` constraint (not just the old composite PK on
+-- (match_group_id, product_id), which only stopped a product appearing
+-- twice *in the same group* and did nothing to stop it appearing under two
+-- *different* groups). This closes a real TOCTOU race: curate-match's
+-- application-layer "already in another group" pre-check
+-- (createMatchGroup in functions/curate-match/matchGroups.ts) does a SELECT
+-- before the INSERT, but two concurrent requests with an overlapping
+-- productId could both pass that check before either INSERT lands, without
+-- a DB-level constraint tying the check to the write. `product_id unique`
+-- makes that impossible regardless of request timing/ordering — the second
+-- concurrent INSERT now fails with a real unique-violation (Postgres error
+-- 23505), which matchGroups.ts handles as the authoritative guard (the
+-- pre-check remains only as a fast-path for a clean error message in the
+-- common, non-racing case). `product_id` alone is now the primary key in
+-- all but name; kept as a plain `unique` column (rather than promoting it
+-- to the primary key) so the table's identity story stays
+-- (match_group_id, product_id) for anyone joining on it, while still
+-- guaranteeing one-group-per-product at the DB level.
+create table product_match_members (
+  match_group_id bigint not null references product_match_groups(id) on delete cascade,
+  product_id bigint not null unique references products(id) on delete cascade,
+  primary key (match_group_id, product_id)
+);
+
+alter table product_match_groups enable row level security;
+alter table product_match_members enable row level security;
+
+create policy "product_match_groups: public read" on product_match_groups
+  for select using (true);
+
+create policy "product_match_members: public read" on product_match_members
+  for select using (true);
+
+-- Only the service role (used by the curate-match Edge Function) can write.
+-- No policy is created for insert/update/delete, so RLS denies them to the
+-- anon/authenticated roles by default; the service role bypasses RLS
+-- entirely — matching products' own write model above.
+
+-- created_by is a curator's internal identity (e.g. an email), recorded
+-- purely for internal accountability -- it was never meant to be part of
+-- the public-facing "is this really the same product elsewhere?" data the
+-- "public read" policy above exists to expose. RLS policies are row-level
+-- only (they can't restrict which *columns* of an allowed row are
+-- readable), so without column-level privileges, any holder of the anon
+-- key (i.e. anyone -- the anon key ships in the client bundle) could read
+-- every curator's email straight out of the REST API
+-- (.../product_match_groups?select=created_by), even though the app's own
+-- frontend query (fetchMatchGroup in src/lib/api.ts) never asks for that
+-- column.
+--
+-- IMPORTANT, verified against the live project 2026-09-03: a bare
+-- `revoke select (created_by) on ... from anon, authenticated` here looks
+-- correct and produces no error, but is a NO-OP against Supabase's
+-- defaults -- Postgres grants new tables full table-level SELECT to
+-- anon/authenticated automatically, and a table-level grant makes every
+-- column readable regardless of any column-level revoke layered on top
+-- (a column-level privilege can only ADD access beyond a narrower
+-- table-level grant, never narrow a broader one -- confirmed via
+-- `has_column_privilege`/`pg_attribute.attacl` directly against the live
+-- DB, not just by reading this file). The only way to actually restrict
+-- which columns anon/authenticated can read is to revoke the table-level
+-- grant entirely and re-grant SELECT on just the columns meant to be
+-- public:
+revoke select on product_match_groups from anon, authenticated;
+grant select (id, label, created_at) on product_match_groups to anon, authenticated;
+-- service_role (used by curate-match) is untouched by the above -- it
+-- bypasses RLS and privilege checks entirely, same as every other table.
+-- One consequence worth knowing: `select=*` (star) against this table now
+-- 401s for anon/authenticated, since `*` expands to every column
+-- including the restricted one and Postgres denies the whole request if
+-- any requested column lacks privilege -- not a bug, just how column
+-- privileges compose. Confirmed this doesn't affect the app: nothing in
+-- src/ queries product_match_groups directly (fetchMatchGroup only reads
+-- product_match_members and products); if that ever changes, the query
+-- must name columns explicitly (id, label, created_at), never `*`.
+
+-- ---------------------------------------------------------------------------
 -- saved_looks: user-scoped "My Looks" — replaces the old single-tenant
 -- saved_products table. product_id references the real catalog above, but
 -- is nullable so a saved render from a pasted link that never resolved to a

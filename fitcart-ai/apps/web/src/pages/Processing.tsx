@@ -17,7 +17,7 @@ const STEP_LABELS = [
 export default function Processing() {
   const navigate = useNavigate();
   const location = useLocation();
-  const state = location.state as { afterRoute?: string; sourceLink?: string | null } | null;
+  const state = location.state as { afterRoute?: string; sourceLink?: string | null; productId?: number | null } | null;
   const afterRoute = state?.afterRoute ?? '/result';
   const [step, setStep] = useState(0);
   const progress = Math.min(100, Math.round((step / STEP_LABELS.length) * 100));
@@ -28,7 +28,7 @@ export default function Processing() {
         const next = prev + 1;
         if (next >= STEP_LABELS.length) {
           window.clearInterval(timer);
-          window.setTimeout(() => navigate(afterRoute, { replace: true, state: { sourceLink: state?.sourceLink ?? null } }), 500);
+          window.setTimeout(() => navigate(afterRoute, { replace: true, state: { sourceLink: state?.sourceLink ?? null, productId: state?.productId ?? null } }), 500);
         }
         return Math.min(next, STEP_LABELS.length);
       });
