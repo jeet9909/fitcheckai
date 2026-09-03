@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  VITE_SUPABASE_URL = "https://glbrmvyffrxhxqumecxd.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsYnJtdnlmZnJ4aHhxdW1lY3hkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxOTg3NDAsImV4cCI6MjEwMzc3NDc0MH0.TDXTBKz51lBrn5b9CbOjb7Ru4tcnZQgbohNmBlhRZDg"
+
+# react-router-dom's BrowserRouter uses real history-based routing (not
+# hash routing) — without this, a direct load or refresh on any non-root
+# route (e.g. /discover) 404s, since Netlify's CDN otherwise only serves
+# files that exist on disk.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
