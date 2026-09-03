@@ -37,7 +37,7 @@
 // missing/wrong. This is a server-to-server admin operation, never called
 // from the frontend — there is no client-side code that knows this secret.
 //
-// Request body: { terms?: string[]; stores?: Store[] }
+// Request body: { terms?: string[]; stores?: Store[]; amazonNodes?: string[] }
 //   - `terms` defaults to the first `DEFAULT_TERM_COUNT` entries of
 //     searchTerms.ts's curated SEARCH_TERMS list when omitted.
 //   - `stores` defaults to all 6 stores when omitted.
@@ -45,6 +45,15 @@
 //     process) is capped at MAX_PAIRS_PER_INVOCATION — a request exceeding
 //     that is a 400, not silently truncated, so the caller knows to split
 //     it into multiple calls rather than assuming full coverage happened.
+//   - `amazonNodes` (optional, defaults to none) is a separate ingestion
+//     path: Amazon category "browse node" IDs to scrape via the on-page
+//     deals widget (search-products/scraping/amazonBrowseNodeScraper.ts) —
+//     structurally different from `terms`/`stores` since a node ID isn't a
+//     search query, so it isn't a Store and doesn't multiply against
+//     `terms`. Every ID must be one of amazonBrowseNodes.ts's curated,
+//     live-verified entries — an unrecognized ID is a 400, never scraped
+//     speculatively. Counts toward the same MAX_PAIRS_PER_INVOCATION budget
+//     as term/store pairs.
 //
 // Response: 200 with a JSON summary of every (term, store) pair's real
 // outcome (status/count/upserted/message, exactly what search-products
@@ -53,8 +62,10 @@
 // anti-detection guarantee — see the file-level comment above).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { PROVIDERS, runProvider, type Store } from '../search-products/orchestrator.ts';
+import { filterAllowedListings, PROVIDERS, runProvider, sanitizeScrapedListing, type ProviderResult, type Store } from '../search-products/orchestrator.ts';
+import { scrapeAmazonBrowseNode } from '../search-products/scraping/amazonBrowseNodeScraper.ts';
 import { upsertAndReport, type ProviderResponse } from '../search-products/persistCatalog.ts';
+import { AMAZON_BROWSE_NODES } from './amazonBrowseNodes.ts';
 import { DEFAULT_TERM_COUNT, SEARCH_TERMS } from './searchTerms.ts';
 
 const supabaseAdmin = createClient(
@@ -147,7 +158,11 @@ Deno.serve(async (req) => {
     return json({ error: 'Request body must be valid JSON.' }, 400);
   }
 
-  const { terms: rawTerms, stores: rawStores } = (body ?? {}) as { terms?: unknown; stores?: unknown };
+  const { terms: rawTerms, stores: rawStores, amazonNodes: rawAmazonNodes } = (body ?? {}) as {
+    terms?: unknown;
+    stores?: unknown;
+    amazonNodes?: unknown;
+  };
 
   let terms: string[];
   if (rawTerms === undefined) {
@@ -183,11 +198,31 @@ Deno.serve(async (req) => {
     stores = rawStores as Store[];
   }
 
-  const pairCount = terms.length * stores.length;
+  const knownNodeIds = new Set(AMAZON_BROWSE_NODES.map((n) => n.id));
+  let amazonNodes: string[];
+  if (rawAmazonNodes === undefined) {
+    amazonNodes = [];
+  } else {
+    if (!Array.isArray(rawAmazonNodes) || rawAmazonNodes.some((n) => typeof n !== 'string')) {
+      return json({ error: '`amazonNodes` must be an array of strings.' }, 400);
+    }
+    const unknown = (rawAmazonNodes as string[]).filter((id) => !knownNodeIds.has(id));
+    if (unknown.length > 0) {
+      return json(
+        {
+          error: `Unknown Amazon browse node(s): ${unknown.join(', ')}. Only live-verified nodes are allowed — see amazonBrowseNodes.ts. Known: ${[...knownNodeIds].join(', ')}.`,
+        },
+        400,
+      );
+    }
+    amazonNodes = rawAmazonNodes as string[];
+  }
+
+  const pairCount = terms.length * stores.length + amazonNodes.length;
   if (pairCount > MAX_PAIRS_PER_INVOCATION) {
     return json(
       {
-        error: `${pairCount} (term, store) pairs requested — max ${MAX_PAIRS_PER_INVOCATION} per invocation. Split into multiple calls with a smaller \`terms\`/\`stores\` subset.`,
+        error: `${pairCount} pairs requested (term x store, plus amazonNodes) — max ${MAX_PAIRS_PER_INVOCATION} per invocation. Split into multiple calls with a smaller \`terms\`/\`stores\`/\`amazonNodes\` subset.`,
       },
       400,
     );
@@ -210,6 +245,34 @@ Deno.serve(async (req) => {
         const reported = await upsertAndReport(supabaseAdmin, store, result);
         pairResults.push({ term, store, ...reported });
       }
+    }
+
+    // Separate ingestion path — not query-driven, so it doesn't go through
+    // runProvider/PROVIDERS at all. Mirrors runProvider's own scrape-outcome
+    // mapping (search-products/orchestrator.ts) by hand since there's no
+    // Store adapter for "browse a fixed node id".
+    for (const nodeId of amazonNodes) {
+      if (!isFirstPair) await delay(DELAY_BETWEEN_PAIRS_MS);
+      isFirstPair = false;
+
+      const node = AMAZON_BROWSE_NODES.find((n) => n.id === nodeId)!;
+      const outcome = await scrapeAmazonBrowseNode(nodeId);
+
+      let result: ProviderResult;
+      if (outcome.status === 'success' && outcome.listings.length > 0) {
+        const scraped = outcome.listings.map((l) => sanitizeScrapedListing({ ...l, source: 'scraped' as const }));
+        const allowed = filterAllowedListings('amazon', scraped);
+        result = allowed.length > 0
+          ? { status: 'success', listings: allowed }
+          : { status: 'scrape_blocked', listings: [], message: "Scraped results didn't match a trusted store domain." };
+      } else if (outcome.status === 'failed') {
+        result = { status: 'scrape_failed', listings: [], message: `Amazon browse-node scrape failed: ${outcome.reason ?? 'unknown error'}` };
+      } else {
+        result = { status: 'scrape_blocked', listings: [], message: `Amazon browse-node scrape was blocked: ${outcome.reason ?? "couldn't parse a real page"}` };
+      }
+
+      const reported = await upsertAndReport(supabaseAdmin, 'amazon', result);
+      pairResults.push({ term: `node:${node.label}`, store: 'amazon', ...reported });
     }
   } catch (err) {
     // runProvider/upsertAndReport are both documented to never throw — this

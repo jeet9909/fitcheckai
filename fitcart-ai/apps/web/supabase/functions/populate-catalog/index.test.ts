@@ -7,7 +7,7 @@
 // products' own orchestrator/cacheFirstSearch/scraper test suites, which
 // this function reuses unmodified.
 
-import { assertEquals } from '../search-products/_testUtils.ts';
+import { assert, assertEquals } from '../search-products/_testUtils.ts';
 
 // Deno.serve registers a handler immediately at import time; capturing it
 // via a stub lets these tests call the exact same handler `deno deploy`
@@ -143,5 +143,47 @@ Deno.test('populate-catalog: rejects an empty `terms` array as 400', async () =>
       }),
     );
     assertEquals(res.status, 400);
+  });
+});
+
+Deno.test('populate-catalog: rejects an unrecognized `amazonNodes` id as 400, never scrapes it speculatively', async () => {
+  await withSecret('correct-secret', async () => {
+    const res = await handler(
+      new Request('https://example.com/', {
+        method: 'POST',
+        headers: { 'x-populate-secret': 'correct-secret', 'content-type': 'application/json' },
+        body: JSON.stringify({ terms: ['shirt'], stores: ['amazon'], amazonNodes: ['9999999999'] }),
+      }),
+    );
+    assertEquals(res.status, 400);
+    const data = await res.json();
+    assert(typeof data.error === 'string' && data.error.includes('9999999999'));
+  });
+});
+
+Deno.test('populate-catalog: `amazonNodes` count is summed into the MAX_PAIRS_PER_INVOCATION cap, not ignored', async () => {
+  await withSecret('correct-secret', async () => {
+    // 4 terms x 6 stores = 24 — exactly at the cap on its own (not over).
+    // Adding one verified node must tip it to 25/400 — proves the node
+    // count is actually summed into pairCount, not tracked separately or
+    // ignored. (Deliberately not a "stays under, expect 200" case — that
+    // would fall through into real runProvider/scrape/DB calls, which this
+    // file's header comment says these validation-path tests must never
+    // reach.)
+    const terms = ['shirts', 'jeans', 'shoes', 'jackets'];
+    const res = await handler(
+      new Request('https://example.com/', {
+        method: 'POST',
+        headers: { 'x-populate-secret': 'correct-secret', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          terms,
+          stores: ['amazon', 'flipkart', 'meesho', 'myntra', 'ajio', 'nykaaFashion'],
+          amazonNodes: ['1968024031'],
+        }),
+      }),
+    );
+    assertEquals(res.status, 400);
+    const data = await res.json();
+    assert(typeof data.error === 'string' && data.error.includes('25'));
   });
 });

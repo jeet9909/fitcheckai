@@ -146,7 +146,12 @@ function sanitizeScrapedString(input: string, maxLength: number): string {
 // specifically for the scraping path (mock and live-API listings don't go
 // through this, since mock data is generated in-process and real-API
 // listings come from a trusted, schema-shaped response).
-function sanitizeScrapedListing(listing: StoreListing): StoreListing {
+// Exported for populate-catalog's browse-node ingestion path (see
+// populate-catalog/index.ts) — it needs the exact same defensive
+// capping/control-char stripping applied to a scrape outcome that isn't
+// query-driven (amazonBrowseNodeScraper.ts), so this is reused rather than
+// reimplemented.
+export function sanitizeScrapedListing(listing: StoreListing): StoreListing {
   return {
     ...listing,
     name: sanitizeScrapedString(listing.name, MAX_SCRAPED_FIELD_LENGTH),
@@ -173,7 +178,8 @@ function sanitizeErrorMessage(_err: unknown): string {
 // domain set, logging what got dropped. Mock listings are exempt — they're
 // generated in-process (not from an upstream response) and intentionally
 // point at example.com, which would never pass a real marketplace allowlist.
-function filterAllowedListings(store: Store, listings: StoreListing[]): StoreListing[] {
+// Exported for the same reason as sanitizeScrapedListing above.
+export function filterAllowedListings(store: Store, listings: StoreListing[]): StoreListing[] {
   const listingStore = PROVIDERS[store].listingStore;
   const allowed: StoreListing[] = [];
   for (const listing of listings) {
