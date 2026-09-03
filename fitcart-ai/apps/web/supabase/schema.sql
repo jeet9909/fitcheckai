@@ -64,7 +64,23 @@ create table products (
   product_url text unique,
   image_url text,
   size_chart jsonb,
-  source text not null default 'curated', -- 'curated' | 'scraped' | 'amazon-affiliate' | 'flipkart-affiliate' | 'amazon-mock' | 'flipkart-mock' | 'amazon-scraped' | 'flipkart-scraped'
+  source text not null default 'curated',
+  -- Free-text; observed values as of the 6-store search-products revision:
+  --   'curated' | 'scraped'
+  --   | 'amazon-affiliate'   | 'flipkart-affiliate'
+  --   | 'amazon-mock'        | 'flipkart-mock'
+  --   | 'amazon-scraped'     | 'flipkart-scraped'
+  --   | 'meesho-mock'        | 'meesho-scraped'
+  --   | 'myntra-mock'        | 'myntra-scraped'
+  --   | 'ajio-mock'          | 'ajio-scraped'
+  --   | 'nykaaFashion-mock'  | 'nykaaFashion-scraped'
+  -- Meesho/Myntra/AJIO/Nykaa Fashion NEVER produce a '-affiliate' suffix —
+  -- unlike Amazon/Flipkart, there is no public catalog/search API for these
+  -- four stores at all (see supabase/functions/search-products/
+  -- orchestrator.ts's PROVIDERS table, where configured() is hardcoded to
+  -- always return false for all four), so every real row for them comes
+  -- either from the scraping fallback ('<store>-scraped') or from
+  -- fetch-product's single-URL paste flow (plain 'scraped').
   -- '*-mock' rows are written only when the search-products Edge Function's
   -- MOCK_MARKETPLACES dev/demo flag is on (see supabase/functions/search-
   -- products/mockData.ts) — this reuses the existing free-text column
@@ -74,9 +90,10 @@ create table products (
   -- '*-scraped' rows (distinct from the plain 'scraped' value used by the
   -- fetch-product paste-a-link flow) come from search-products' scraping
   -- fallback (supabase/functions/search-products/scraping/) — used only
-  -- when that store's real affiliate API isn't configured. Unlike mock
-  -- rows, these point at real, allowlist-checked store URLs pulled from a
-  -- live page, so they're persisted as ordinary catalog data.
+  -- when that store's real affiliate API isn't configured (permanently true
+  -- for the four non-Amazon/Flipkart stores). Unlike mock rows, these point
+  -- at real, allowlist-checked store URLs pulled from a live page, so
+  -- they're persisted as ordinary catalog data.
   scraped_at timestamptz
 );
 

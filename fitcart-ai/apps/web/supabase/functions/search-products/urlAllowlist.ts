@@ -14,6 +14,10 @@ type Store = StoreListing['store'];
 const ALLOWED_HOSTS: Record<Store, string[]> = {
   Amazon: ['amazon.in', 'amzn.to'],
   Flipkart: ['flipkart.com', 'fkrt.it', 'dl.flipkart.com'],
+  Meesho: ['meesho.com'],
+  Myntra: ['myntra.com'],
+  AJIO: ['ajio.com'],
+  'Nykaa Fashion': ['nykaafashion.com'],
 };
 
 function hostMatches(hostname: string, allowed: string): boolean {

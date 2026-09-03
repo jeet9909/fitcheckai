@@ -106,4 +106,52 @@ describe('searchMarketplaces', () => {
 
     vi.doUnmock('./supabase');
   });
+
+  it('reports not_configured for all 6 stores (not just amazon/flipkart) when Supabase is unavailable and marketplace is "all"', async () => {
+    vi.resetModules();
+    vi.doMock('./supabase', () => ({ isSupabaseConfigured: false, supabase: null }));
+    const { searchMarketplaces: search3 } = await import('./api');
+
+    const result = await search3('shoes', 'all');
+
+    expect(result.providers.amazon?.status).toBe('not_configured');
+    expect(result.providers.flipkart?.status).toBe('not_configured');
+    expect(result.providers.meesho?.status).toBe('not_configured');
+    expect(result.providers.myntra?.status).toBe('not_configured');
+    expect(result.providers.ajio?.status).toBe('not_configured');
+    expect(result.providers.nykaaFashion?.status).toBe('not_configured');
+    expect(invokeMock).not.toHaveBeenCalled();
+
+    vi.doUnmock('./supabase');
+  });
+
+  it('scopes the not_configured fallback to only the requested store for a single non-amazon/flipkart marketplace', async () => {
+    vi.resetModules();
+    vi.doMock('./supabase', () => ({ isSupabaseConfigured: false, supabase: null }));
+    const { searchMarketplaces: search4 } = await import('./api');
+
+    const result = await search4('shoes', 'myntra');
+
+    expect(result.providers.myntra?.status).toBe('not_configured');
+    expect(result.providers.amazon).toBeUndefined();
+    expect(result.providers.flipkart).toBeUndefined();
+    expect(Object.keys(result.providers)).toEqual(['myntra']);
+
+    vi.doUnmock('./supabase');
+  });
+
+  it('passes a single new-store marketplace value straight through to the Edge Function invocation', async () => {
+    const body = {
+      query: 'kurti',
+      mock: false,
+      results: [],
+      providers: { meesho: { status: 'success', count: 0, upserted: 0 } },
+    };
+    invokeMock.mockResolvedValue({ data: body, error: null });
+
+    const result = await searchMarketplaces('kurti', 'meesho');
+
+    expect(invokeMock).toHaveBeenCalledWith('search-products', { body: { query: 'kurti', marketplace: 'meesho' } });
+    expect(result).toEqual(body);
+  });
 });

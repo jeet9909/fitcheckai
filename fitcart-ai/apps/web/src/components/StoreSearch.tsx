@@ -1,27 +1,31 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { searchMarketplaces, type ProviderResult, type ProviderStatus, type StoreListing } from '../lib/api';
+import { searchMarketplaces, type ProviderResult, type ProviderStatus, type StoreKey, type StoreListing } from '../lib/api';
 import { isAllowedMarketplaceUrl } from '../lib/marketplaceUrls';
 import { fmt } from '../lib/format';
 import { useAppState } from '../state/AppState';
 import type { Product } from '../data/products';
 
-type ProviderKey = 'amazon' | 'flipkart';
+type ProviderKey = StoreKey;
 
 const PROVIDER_LABELS: Record<ProviderKey, string> = {
   amazon: 'Amazon',
   flipkart: 'Flipkart',
+  meesho: 'Meesho',
+  myntra: 'Myntra',
+  ajio: 'AJIO',
+  nykaaFashion: 'Nykaa Fashion',
 };
 
-const PROVIDER_ORDER: ProviderKey[] = ['amazon', 'flipkart'];
+const PROVIDER_ORDER: ProviderKey[] = ['amazon', 'flipkart', 'meesho', 'myntra', 'ajio', 'nykaaFashion'];
 
-// Amazon and Flipkart are now fetched as two fully independent requests (see
+// Each of the 6 stores is fetched as its own fully independent request (see
 // runSearch below) instead of one combined `marketplace: 'all'` request —
-// the backend runs both providers concurrently either way, but a combined
-// request's HTTP response only comes back once BOTH finish, so a fast
+// the backend runs every provider concurrently either way, but a combined
+// request's HTTP response only comes back once ALL of them finish, so a fast
 // provider's result was previously held hostage by a slow one. Each slot
 // tracks its own request lifecycle so its chip/results can render the moment
-// THAT provider resolves, independent of the other.
+// THAT provider resolves, independent of the others.
 interface ProviderSlot {
   status: 'idle' | 'loading' | 'done';
   data?: ProviderResult;
@@ -205,10 +209,9 @@ export default function StoreSearch() {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [mockActive, setMockActive] = useState(false);
-  const [providerStates, setProviderStates] = useState<Record<ProviderKey, ProviderSlot>>({
-    amazon: idleSlot(),
-    flipkart: idleSlot(),
-  });
+  const [providerStates, setProviderStates] = useState<Record<ProviderKey, ProviderSlot>>(
+    () => Object.fromEntries(PROVIDER_ORDER.map((key) => [key, idleSlot()])) as Record<ProviderKey, ProviderSlot>,
+  );
 
   const runSearch = () => {
     const trimmed = query.trim();
@@ -216,7 +219,9 @@ export default function StoreSearch() {
 
     setSearching(true);
     setMockActive(false);
-    setProviderStates({ amazon: loadingSlot(), flipkart: loadingSlot() });
+    setProviderStates(
+      Object.fromEntries(PROVIDER_ORDER.map((key) => [key, loadingSlot()])) as Record<ProviderKey, ProviderSlot>,
+    );
 
     // Two fully independent requests, NOT Promise.all — each provider's slot
     // updates the instant its own promise settles, so a fast Amazon response
@@ -255,7 +260,7 @@ export default function StoreSearch() {
     }
   };
 
-  const hasSearched = providerStates.amazon.status !== 'idle' || providerStates.flipkart.status !== 'idle';
+  const hasSearched = PROVIDER_ORDER.some((key) => providerStates[key].status !== 'idle');
   const mergedResults = PROVIDER_ORDER.flatMap((key) => providerStates[key].listings);
 
   return (
@@ -267,7 +272,7 @@ export default function StoreSearch() {
           onKeyDown={(e) => e.key === 'Enter' && runSearch()}
           disabled={searching}
           maxLength={200}
-          placeholder="Search Amazon & Flipkart, e.g. men's shirt"
+          placeholder="Search across 6 stores, e.g. men's shirt"
           aria-label="Search live listings across marketplaces"
           style={{ flex: '1 1 240px', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--surface)' }}
         />

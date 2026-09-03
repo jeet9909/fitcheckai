@@ -61,4 +61,59 @@ describe('isAllowedMarketplaceUrl', () => {
   it('rejects empty strings', () => {
     expect(isAllowedMarketplaceUrl('Flipkart', '')).toBe(false);
   });
+
+  it('allows meesho.com product URLs', () => {
+    expect(isAllowedMarketplaceUrl('Meesho', 'https://www.meesho.com/product/p/itm123')).toBe(true);
+  });
+
+  it('allows bare meesho.com without subdomain', () => {
+    expect(isAllowedMarketplaceUrl('Meesho', 'https://meesho.com/product/p/itm123')).toBe(true);
+  });
+
+  it('rejects a lookalike domain that merely contains "meesho.com"', () => {
+    expect(isAllowedMarketplaceUrl('Meesho', 'https://meesho.com.evil.com/product/p/itm123')).toBe(false);
+  });
+
+  it('allows myntra.com product URLs', () => {
+    expect(isAllowedMarketplaceUrl('Myntra', 'https://www.myntra.com/shirts/brand/itm123')).toBe(true);
+  });
+
+  it('allows bare myntra.com without subdomain', () => {
+    expect(isAllowedMarketplaceUrl('Myntra', 'https://myntra.com/shirts/brand/itm123')).toBe(true);
+  });
+
+  it('rejects a non-Myntra domain for the Myntra store', () => {
+    expect(isAllowedMarketplaceUrl('Myntra', 'https://www.amazon.in/dp/B0ABCDEFG')).toBe(false);
+  });
+
+  it('allows ajio.com product URLs', () => {
+    expect(isAllowedMarketplaceUrl('AJIO', 'https://www.ajio.com/p/itm123')).toBe(true);
+  });
+
+  it('allows bare ajio.com without subdomain', () => {
+    expect(isAllowedMarketplaceUrl('AJIO', 'https://ajio.com/p/itm123')).toBe(true);
+  });
+
+  it('rejects a spoofed hostname prefix like "notajio.com"', () => {
+    expect(isAllowedMarketplaceUrl('AJIO', 'https://notajio.com/p/itm123')).toBe(false);
+  });
+
+  it('allows nykaafashion.com product URLs', () => {
+    expect(isAllowedMarketplaceUrl('Nykaa Fashion', 'https://www.nykaafashion.com/p/itm123')).toBe(true);
+  });
+
+  it('allows bare nykaafashion.com without subdomain', () => {
+    expect(isAllowedMarketplaceUrl('Nykaa Fashion', 'https://nykaafashion.com/p/itm123')).toBe(true);
+  });
+
+  it('rejects a non-Nykaa-Fashion domain for the Nykaa Fashion store', () => {
+    expect(isAllowedMarketplaceUrl('Nykaa Fashion', 'https://www.flipkart.com/product/p/itm123')).toBe(false);
+  });
+
+  it('rejects cross-store URLs among the newly added stores', () => {
+    expect(isAllowedMarketplaceUrl('Meesho', 'https://www.myntra.com/shirts/brand/itm123')).toBe(false);
+    expect(isAllowedMarketplaceUrl('Myntra', 'https://www.ajio.com/p/itm123')).toBe(false);
+    expect(isAllowedMarketplaceUrl('AJIO', 'https://www.nykaafashion.com/p/itm123')).toBe(false);
+    expect(isAllowedMarketplaceUrl('Nykaa Fashion', 'https://www.meesho.com/product/p/itm123')).toBe(false);
+  });
 });

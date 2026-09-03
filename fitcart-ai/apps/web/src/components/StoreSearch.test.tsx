@@ -1,7 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Marketplace, MarketplaceSearchResult, ProviderResult, StoreListing } from '../lib/api';
+import type { Marketplace, MarketplaceSearchResult, ProviderResult, StoreKey, StoreListing } from '../lib/api';
 import type { Product } from '../data/products';
+
+// All 6 stores StoreSearch now fires independent requests for. Kept as a
+// constant here (rather than imported from api.ts) so this test file's
+// expectations don't silently pass just because it shares a source of truth
+// with the implementation — this is the same 6-key list PROVIDER_ORDER in
+// StoreSearch.tsx is built from.
+const ALL_STORE_KEYS: StoreKey[] = ['amazon', 'flipkart', 'meesho', 'myntra', 'ajio', 'nykaaFashion'];
 
 const searchMarketplacesMock = vi.fn();
 const refreshProductsMock = vi.fn();
@@ -55,17 +62,17 @@ function makeProduct(overrides: Partial<Product> & { id: number; productUrl: str
 }
 
 function runSearch(query: string) {
-  fireEvent.change(screen.getByPlaceholderText(/search amazon & flipkart/i), { target: { value: query } });
+  fireEvent.change(screen.getByPlaceholderText(/search across 6 stores/i), { target: { value: query } });
   fireEvent.click(screen.getByRole('button', { name: /search/i }));
 }
 
 // Mirrors the real backend contract (orchestrator.ts's resolveStores +
 // index.ts) — a single-store request's response has `providers` containing
 // ONLY that store's key, and `results` scoped to only that store's listings.
-// Tests must model this per-call shape now that StoreSearch fires two
+// Tests must model this per-call shape now that StoreSearch fires six
 // independent single-store requests instead of one combined 'all' request.
 function providerResponse(
-  marketplace: 'amazon' | 'flipkart',
+  marketplace: StoreKey,
   provider: ProviderResult,
   listings: StoreListing[] = [],
   mock = false,
@@ -78,15 +85,23 @@ function providerResponse(
   };
 }
 
+// A store this test doesn't care about, but which StoreSearch still fires a
+// request for — defaults it to an honest not_configured response so tests
+// written before the 4-store expansion don't have to stub all 6 explicitly.
+function defaultResponse(marketplace: StoreKey): MarketplaceSearchResult {
+  return providerResponse(marketplace, { status: 'not_configured', count: 0, upserted: 0 });
+}
+
 // Wires the mock so each call to searchMarketplaces(query, marketplace)
 // resolves independently according to the per-marketplace response supplied
-// — the two calls StoreSearch fires are otherwise indistinguishable to a
-// single mockResolvedValue().
-function mockPerProvider(responses: Partial<Record<'amazon' | 'flipkart', MarketplaceSearchResult>>) {
+// — the six calls StoreSearch fires are otherwise indistinguishable to a
+// single mockResolvedValue(). Any store not explicitly stubbed falls back to
+// an idle not_configured response rather than throwing, since most tests
+// only care about one or two of the 6 stores.
+function mockPerProvider(responses: Partial<Record<StoreKey, MarketplaceSearchResult>>) {
   searchMarketplacesMock.mockImplementation(async (_query: string, marketplace: Marketplace) => {
-    const response = responses[marketplace as 'amazon' | 'flipkart'];
-    if (!response) throw new Error(`test did not stub a response for marketplace: ${marketplace}`);
-    return response;
+    const key = marketplace as StoreKey;
+    return responses[key] ?? defaultResponse(key);
   });
 }
 
@@ -313,7 +328,7 @@ describe('StoreSearch', () => {
 
   it('has a maxLength of 200 on the search input, matching the backend query limit', () => {
     render(<StoreSearch />);
-    const input = screen.getByPlaceholderText(/search amazon & flipkart/i);
+    const input = screen.getByPlaceholderText(/search across 6 stores/i);
     expect(input).toHaveAttribute('maxlength', '200');
   });
 
@@ -500,5 +515,87 @@ describe('StoreSearch', () => {
     // Amazon's already-rendered result must survive Flipkart's throw.
     expect(screen.getByText('Resilient Amazon Shirt')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', { name: /^search$/i })).toBeInTheDocument());
+  });
+
+  it('initializes provider state for all 6 stores and fires an independent loading request for each, not just Amazon/Flipkart', async () => {
+    // Regression guard for the providerStates initial-state generalization:
+    // hardcoding the initial object literal to two keys would silently drop
+    // the other 4 stores the moment PROVIDER_ORDER grew, with no type error
+    // (Partial<Record<...>> access on a missing key just reads as
+    // undefined). Asserting a loading spinner appears for every one of the 6
+    // keys immediately after a search is fired proves the state was
+    // actually seeded for all of them, not just the two legacy ones.
+    let resolveAll: (value: MarketplaceSearchResult) => void = () => {};
+    searchMarketplacesMock.mockReturnValue(
+      new Promise<MarketplaceSearchResult>((resolve) => {
+        resolveAll = resolve;
+      }),
+    );
+
+    render(<StoreSearch />);
+    runSearch('shirt');
+
+    for (const key of ALL_STORE_KEYS) {
+      expect(await screen.findByTestId(`search-spinner-${key}`)).toBeInTheDocument();
+    }
+    expect(searchMarketplacesMock).toHaveBeenCalledTimes(6);
+    for (const key of ALL_STORE_KEYS) {
+      expect(searchMarketplacesMock).toHaveBeenCalledWith('shirt', key);
+    }
+
+    resolveAll({ query: 'shirt', mock: false, results: [], providers: {} });
+    await waitFor(() => expect(screen.getByRole('button', { name: /^search$/i })).toBeInTheDocument());
+  });
+
+  it('renders Meesho and Myntra results/chips independently of Amazon and Flipkart, proving the generalization beyond the original 2 stores', async () => {
+    mockPerProvider({
+      amazon: providerResponse('amazon', { status: 'not_configured', count: 0, upserted: 0 }),
+      flipkart: providerResponse('flipkart', { status: 'not_configured', count: 0, upserted: 0 }),
+      meesho: providerResponse(
+        'meesho',
+        { status: 'scrape_blocked', count: 1, upserted: 1, message: "Meesho isn't connected yet, and our scrape attempt was blocked by their bot detection." },
+        [{ name: 'Meesho Kurti', brand: 'BrandM', price: 399, mrp: 699, color: 'yellow', imageUrl: null, productUrl: 'https://www.meesho.com/product/p/itm456', store: 'Meesho', source: 'scraped' }],
+      ),
+      myntra: providerResponse(
+        'myntra',
+        { status: 'success', count: 1, upserted: 1 },
+        [{ name: 'Myntra Sneakers', brand: 'BrandN', price: 1299, mrp: 1999, color: 'white', imageUrl: null, productUrl: 'https://www.myntra.com/shoes/brand/itm789', store: 'Myntra', source: 'live' }],
+      ),
+    });
+
+    render(<StoreSearch />);
+    runSearch('shirt');
+
+    expect(await screen.findByText('Myntra: 1 result')).toBeInTheDocument();
+    expect(await screen.findByText("Meesho: Meesho isn't connected yet, and our scrape attempt was blocked by their bot detection.")).toBeInTheDocument();
+    expect(await screen.findByText('Meesho Kurti')).toBeInTheDocument();
+    expect(await screen.findByText('Myntra Sneakers')).toBeInTheDocument();
+    expect(screen.getByText('Unofficial')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /buy on meesho/i })).toHaveAttribute('href', 'https://www.meesho.com/product/p/itm456');
+    expect(screen.getByRole('link', { name: /buy on myntra/i })).toHaveAttribute('href', 'https://www.myntra.com/shoes/brand/itm789');
+  });
+
+  it('never renders a disallowed-domain result as a clickable link for AJIO or Nykaa Fashion', async () => {
+    mockPerProvider({
+      ajio: providerResponse(
+        'ajio',
+        { status: 'success', count: 1, upserted: 1 },
+        [{ name: 'Suspicious AJIO Item', brand: 'BrandA', price: 100, mrp: 200, color: 'green', imageUrl: null, productUrl: 'https://scam.example.com/product', store: 'AJIO', source: 'live' }],
+      ),
+      nykaaFashion: providerResponse(
+        'nykaaFashion',
+        { status: 'success', count: 1, upserted: 1 },
+        [{ name: 'Real Nykaa Item', brand: 'BrandY', price: 799, mrp: 999, color: 'pink', imageUrl: null, productUrl: 'https://www.nykaafashion.com/p/itm999', store: 'Nykaa Fashion', source: 'live' }],
+      ),
+    });
+
+    render(<StoreSearch />);
+    runSearch('shirt');
+
+    await screen.findByText('Suspicious AJIO Item');
+    await screen.findByText('Real Nykaa Item');
+    expect(screen.getByRole('link', { name: /buy on nykaa fashion/i })).toHaveAttribute('href', 'https://www.nykaafashion.com/p/itm999');
+    expect(document.querySelector('a[href="https://scam.example.com/product"]')).toBeNull();
+    expect(screen.getByText('Link unavailable')).toBeInTheDocument();
   });
 });

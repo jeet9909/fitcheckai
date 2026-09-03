@@ -4,11 +4,15 @@
 // for a URL that didn't come from the expected marketplace domain, even if
 // a future bug or a compromised response slipped one through.
 
-export type MarketplaceStore = 'Amazon' | 'Flipkart';
+export type MarketplaceStore = 'Amazon' | 'Flipkart' | 'Meesho' | 'Myntra' | 'AJIO' | 'Nykaa Fashion';
 
 const ALLOWED_HOST_SUFFIXES: Record<MarketplaceStore, string[]> = {
   Amazon: ['.amazon.in', 'amzn.to'],
   Flipkart: ['.flipkart.com', 'fkrt.it', 'dl.flipkart.com'],
+  Meesho: ['.meesho.com'],
+  Myntra: ['.myntra.com'],
+  AJIO: ['.ajio.com'],
+  'Nykaa Fashion': ['.nykaafashion.com'],
 };
 
 function hostMatchesSuffix(host: string, suffix: string): boolean {

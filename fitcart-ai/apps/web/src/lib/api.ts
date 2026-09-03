@@ -94,7 +94,13 @@ export function deleteProfileApi(): Promise<ApiState> {
   return req('/profile', { method: 'DELETE' });
 }
 
-export type Marketplace = 'amazon' | 'flipkart' | 'all';
+// The full set of stores the backend's orchestrator can resolve a single
+// store name to — keep this in sync with the backend's own store list
+// (supabase/functions/search-products/orchestrator.ts).
+export const STORE_KEYS = ['amazon', 'flipkart', 'meesho', 'myntra', 'ajio', 'nykaaFashion'] as const;
+export type StoreKey = typeof STORE_KEYS[number];
+
+export type Marketplace = StoreKey | 'all';
 
 export interface StoreListing {
   name: string;
@@ -104,7 +110,7 @@ export interface StoreListing {
   color: string;
   imageUrl: string | null;
   productUrl: string;
-  store: 'Amazon' | 'Flipkart';
+  store: 'Amazon' | 'Flipkart' | 'Meesho' | 'Myntra' | 'AJIO' | 'Nykaa Fashion';
   source?: 'live' | 'mock' | 'scraped';
 }
 
@@ -121,27 +127,28 @@ export interface MarketplaceSearchResult {
   query: string;
   mock: boolean;
   results: StoreListing[];
-  providers: Partial<Record<'amazon' | 'flipkart', ProviderResult>>;
+  providers: Partial<Record<StoreKey, ProviderResult>>;
 }
 
 // The backend's own resolveStores() (orchestrator.ts) maps a single-store
 // `marketplace` request to just that one store, and index.ts builds
 // `providers` from `Object.keys(providers)` of whatever resolveStores()
 // returned — so a request for 'amazon' gets back a response whose
-// `providers` object has ONLY an `amazon` key, never a fabricated `flipkart`
-// entry. Client-side fallback/error responses (built below, for cases where
-// we never actually reach the backend, or it returns a malformed body) must
-// mirror that same shape — otherwise a single-store caller (StoreSearch.tsx)
-// would see a phantom status for a provider it never asked about.
-function resolveRequestedStores(marketplace: Marketplace): Array<'amazon' | 'flipkart'> {
-  return marketplace === 'all' ? ['amazon', 'flipkart'] : [marketplace];
+// `providers` object has ONLY an `amazon` key, never fabricated entries for
+// the other five stores. Client-side fallback/error responses (built below,
+// for cases where we never actually reach the backend, or it returns a
+// malformed body) must mirror that same shape — otherwise a single-store
+// caller (StoreSearch.tsx) would see a phantom status for a provider it
+// never asked about.
+function resolveRequestedStores(marketplace: Marketplace): StoreKey[] {
+  return marketplace === 'all' ? [...STORE_KEYS] : [marketplace];
 }
 
 function buildFallbackProviders(
   marketplace: Marketplace,
   result: ProviderResult,
-): Partial<Record<'amazon' | 'flipkart', ProviderResult>> {
-  const providers: Partial<Record<'amazon' | 'flipkart', ProviderResult>> = {};
+): Partial<Record<StoreKey, ProviderResult>> {
+  const providers: Partial<Record<StoreKey, ProviderResult>> = {};
   for (const store of resolveRequestedStores(marketplace)) {
     providers[store] = result;
   }

@@ -33,6 +33,22 @@ const MOCK_TEMPLATES: Record<Store, { brand: string; price: number; mrp: number;
     { brand: 'DemoThreads', price: 1399, mrp: 2199, color: 'Navy', slug: 'flipkart-2' },
     { brand: 'SampleStyle', price: 449, mrp: 799, color: 'Red', slug: 'flipkart-3' },
   ],
+  Meesho: [
+    { brand: 'MockWear', price: 349, mrp: 699, color: 'Pink', slug: 'meesho-1' },
+    { brand: 'DemoThreads', price: 449, mrp: 899, color: 'Yellow', slug: 'meesho-2' },
+  ],
+  Myntra: [
+    { brand: 'MockWear', price: 999, mrp: 1799, color: 'Maroon', slug: 'myntra-1' },
+    { brand: 'SampleStyle', price: 1249, mrp: 2499, color: 'Olive', slug: 'myntra-2' },
+  ],
+  AJIO: [
+    { brand: 'DemoThreads', price: 799, mrp: 1599, color: 'Beige', slug: 'ajio-1' },
+    { brand: 'SampleStyle', price: 1099, mrp: 1999, color: 'Green', slug: 'ajio-2' },
+  ],
+  'Nykaa Fashion': [
+    { brand: 'MockWear', price: 899, mrp: 1499, color: 'Rust', slug: 'nykaafashion-1' },
+    { brand: 'DemoThreads', price: 1599, mrp: 2999, color: 'Teal', slug: 'nykaafashion-2' },
+  ],
 };
 
 // Deliberately obviously-fake — example.com is IANA-reserved for

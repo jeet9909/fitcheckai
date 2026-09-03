@@ -10,10 +10,14 @@ import { generateMockListings, isMockMode } from './mockData.ts';
 import { isAllowedMarketplaceUrl } from './urlAllowlist.ts';
 import { scrapeAmazonSearch } from './scraping/amazonSearchScraper.ts';
 import { scrapeFlipkartSearch } from './scraping/flipkartSearchScraper.ts';
+import { scrapeMeeshoSearch } from './scraping/meeshoSearchScraper.ts';
+import { scrapeMyntraSearch } from './scraping/myntraSearchScraper.ts';
+import { scrapeAjioSearch } from './scraping/ajioSearchScraper.ts';
+import { scrapeNykaaFashionSearch } from './scraping/nykaaFashionSearchScraper.ts';
 import type { ScrapeOutcome } from './scraping/types.ts';
 import type { StoreListing } from './types.ts';
 
-export type Store = 'amazon' | 'flipkart';
+export type Store = 'amazon' | 'flipkart' | 'meesho' | 'myntra' | 'ajio' | 'nykaaFashion';
 export type Marketplace = Store | 'all';
 
 // 'scrape_blocked'/'scrape_failed' are the honest outcomes of the scraping
@@ -45,6 +49,17 @@ interface ProviderAdapter {
   listingStore: StoreListing['store'];
 }
 
+// A search function that's never actually called — used for the 4 stores
+// with no public catalog/search API at all (see the four PROVIDERS entries
+// below). Throwing here (rather than e.g. returning []) is deliberate: if a
+// future code change ever calls provider.search() for one of these stores
+// (which would only happen if configured() incorrectly started returning
+// true), that's a real bug that should surface loudly in a log/error rather
+// than silently behaving as "zero results, all fine".
+function searchNotSupported(storeLabel: string): (q: string) => Promise<StoreListing[]> {
+  return () => Promise.reject(new Error(`${storeLabel} has no public search API — this code path should never run (configured() is permanently false).`));
+}
+
 export const PROVIDERS: Record<Store, ProviderAdapter> = {
   amazon: {
     configured: isAmazonConfigured,
@@ -60,9 +75,42 @@ export const PROVIDERS: Record<Store, ProviderAdapter> = {
     label: 'Flipkart',
     listingStore: 'Flipkart',
   },
+  // Meesho/Myntra/AJIO/Nykaa Fashion have no public catalog/search API at
+  // all (unlike Amazon/Flipkart, which merely aren't configured until real
+  // credentials are set) — configured() permanently returns false for these
+  // four, so runProvider always takes the scraping-fallback branch. See each
+  // scraper file's header comment for what was actually observed live.
+  meesho: {
+    configured: () => false,
+    search: searchNotSupported('Meesho'),
+    scrape: scrapeMeeshoSearch,
+    label: 'Meesho',
+    listingStore: 'Meesho',
+  },
+  myntra: {
+    configured: () => false,
+    search: searchNotSupported('Myntra'),
+    scrape: scrapeMyntraSearch,
+    label: 'Myntra',
+    listingStore: 'Myntra',
+  },
+  ajio: {
+    configured: () => false,
+    search: searchNotSupported('AJIO'),
+    scrape: scrapeAjioSearch,
+    label: 'AJIO',
+    listingStore: 'AJIO',
+  },
+  nykaaFashion: {
+    configured: () => false,
+    search: searchNotSupported('Nykaa Fashion'),
+    scrape: scrapeNykaaFashionSearch,
+    label: 'Nykaa Fashion',
+    listingStore: 'Nykaa Fashion',
+  },
 };
 
-const ALL_STORES: Store[] = ['amazon', 'flipkart'];
+const ALL_STORES: Store[] = ['amazon', 'flipkart', 'meesho', 'myntra', 'ajio', 'nykaaFashion'];
 
 export function resolveStores(marketplace: Marketplace): Store[] {
   if (marketplace === 'all') return ALL_STORES;

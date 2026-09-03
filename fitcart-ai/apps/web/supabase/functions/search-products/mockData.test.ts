@@ -34,7 +34,7 @@ Deno.test('mockData: generateMockListings tags every listing source: mock', () =
 });
 
 Deno.test('mockData: generateMockListings uses only obviously-fake example.com URLs', () => {
-  for (const store of ['Amazon', 'Flipkart'] as const) {
+  for (const store of ['Amazon', 'Flipkart', 'Meesho', 'Myntra', 'AJIO', 'Nykaa Fashion'] as const) {
     const listings = generateMockListings(store, 'jeans');
     for (const listing of listings) {
       assert(listing.productUrl.startsWith('https://example.com/'), `unexpected productUrl: ${listing.productUrl}`);
@@ -42,6 +42,21 @@ Deno.test('mockData: generateMockListings uses only obviously-fake example.com U
       // Never a real marketplace domain, under any circumstance.
       assert(!listing.productUrl.includes('amazon.in'));
       assert(!listing.productUrl.includes('flipkart.com'));
+      assert(!listing.productUrl.includes('meesho.com'));
+      assert(!listing.productUrl.includes('myntra.com'));
+      assert(!listing.productUrl.includes('ajio.com'));
+      assert(!listing.productUrl.includes('nykaafashion.com'));
+    }
+  }
+});
+
+Deno.test('mockData: generateMockListings returns at least one listing for all 6 stores', () => {
+  for (const store of ['Amazon', 'Flipkart', 'Meesho', 'Myntra', 'AJIO', 'Nykaa Fashion'] as const) {
+    const listings = generateMockListings(store, 'shirt');
+    assert(listings.length > 0, `expected at least one mock listing for ${store}`);
+    for (const listing of listings) {
+      assertEquals(listing.store, store);
+      assertEquals(listing.source, 'mock');
     }
   }
 });
