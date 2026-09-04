@@ -51,11 +51,13 @@ function makeProduct(overrides: Partial<Product> & { id: number; productUrl: str
     mrp: 200,
     color: 'green',
     material: 'Cotton',
+    description: '',
     fitScore: 80,
     confidence: 0.8,
     breakdown: [],
     source: 'live',
     imageUrl: undefined,
+    imageUrls: [],
     sizeChart: undefined,
     ...overrides,
   };

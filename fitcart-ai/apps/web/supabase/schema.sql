@@ -97,14 +97,41 @@ create table products (
   scraped_at timestamptz
 );
 
+-- description / image_urls: added for the curate-product Edge Function
+-- (manual product-detail curation — description, an image gallery, size
+-- chart — mirroring curate-match's "manual curation, not scraping" pattern,
+-- since a real live-scraping test against Myntra/AJIO/Meesho confirmed the
+-- block on this data is network/IP-level bot-management, not something a
+-- header tweak or parser fix can work around; see supabase/README.md).
+-- `image_urls` is a gallery *in addition to* the existing single `image_url`
+-- column above, which stays exactly as-is (every existing read path already
+-- depends on it) — `image_urls` is additive, never a replacement.
+--
+-- Why these two new columns (and the already-existing `material`/
+-- `size_chart` columns above) are safe from being silently overwritten by a
+-- future re-scrape: search-products/persistCatalog.ts's `upsertListings` is
+-- the only code path that upserts scraped/affiliate rows into `products`,
+-- and its upsert payload is a fixed, explicit column list — name, brand,
+-- store, category, price, mrp, color, product_url, image_url, source,
+-- scraped_at — full stop. PostgREST's upsert-on-conflict (`onConflict:
+-- 'product_url'`) only ever updates columns actually present in the
+-- payload; any column not named there (material, size_chart, and now
+-- description, image_urls) is left completely untouched by a re-scrape of
+-- the same product_url. This is the same guarantee `material` has already
+-- relied on since it was added — extended here, explicitly, so a future
+-- reader doesn't have to re-derive it by diffing persistCatalog.ts by hand.
+alter table products add column description text not null default '';
+alter table products add column image_urls text[] not null default '{}';
+
 alter table products enable row level security;
 
 create policy "products: public read" on products
   for select using (true);
 
--- Only the service role (used by the fetch-product Edge Function) can write.
--- No policy is created for insert/update/delete, so RLS denies them to the
--- anon/authenticated roles by default; the service role bypasses RLS entirely.
+-- Only the service role (used by the fetch-product Edge Function and the
+-- curate-product Edge Function) can write. No policy is created for
+-- insert/update/delete, so RLS denies them to the anon/authenticated roles
+-- by default; the service role bypasses RLS entirely.
 
 -- ---------------------------------------------------------------------------
 -- product_match_groups / product_match_members: manual cross-store price-

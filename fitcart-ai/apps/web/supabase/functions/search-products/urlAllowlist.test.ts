@@ -7,11 +7,27 @@ Deno.test('urlAllowlist: allows canonical Amazon domains', () => {
   assertEquals(isAllowedMarketplaceUrl('Amazon', 'https://amzn.to/abc123'), true);
 });
 
+Deno.test('urlAllowlist: allows Amazon image-CDN domains (distinct registered domains from amazon.in, confirmed live 2026-09-04)', () => {
+  assertEquals(isAllowedMarketplaceUrl('Amazon', 'https://m.media-amazon.com/images/I/51KYvMSM-DL._AC_SL1500_.jpg'), true);
+  assertEquals(isAllowedMarketplaceUrl('Amazon', 'https://media-amazon.com/images/I/x.jpg'), true);
+  assertEquals(isAllowedMarketplaceUrl('Amazon', 'https://images-eu.ssl-images-amazon.com/images/I/x.jpg'), true);
+});
+
 Deno.test('urlAllowlist: allows canonical Flipkart domains', () => {
   assertEquals(isAllowedMarketplaceUrl('Flipkart', 'https://www.flipkart.com/product/p/itm123'), true);
   assertEquals(isAllowedMarketplaceUrl('Flipkart', 'https://flipkart.com/product/p/itm123'), true);
   assertEquals(isAllowedMarketplaceUrl('Flipkart', 'https://fkrt.it/abc'), true);
   assertEquals(isAllowedMarketplaceUrl('Flipkart', 'https://dl.flipkart.com/dl/abc'), true);
+});
+
+Deno.test('urlAllowlist: allows the Flipkart image-CDN domain (a distinct registered domain from flipkart.com, confirmed live 2026-09-04)', () => {
+  assertEquals(isAllowedMarketplaceUrl('Flipkart', 'https://rukmini1.flixcart.com/image/832/832/xif0q/shirt/x.jpeg'), true);
+  assertEquals(isAllowedMarketplaceUrl('Flipkart', 'https://flixcart.com/image/x.jpeg'), true);
+});
+
+Deno.test('urlAllowlist: the new image-CDN domains stay store-scoped, not cross-allowed', () => {
+  assertEquals(isAllowedMarketplaceUrl('Flipkart', 'https://m.media-amazon.com/images/I/x.jpg'), false);
+  assertEquals(isAllowedMarketplaceUrl('Amazon', 'https://rukmini1.flixcart.com/image/x.jpeg'), false);
 });
 
 Deno.test('urlAllowlist: allows canonical Meesho/Myntra/AJIO/Nykaa Fashion domains', () => {

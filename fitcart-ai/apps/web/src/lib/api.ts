@@ -15,12 +15,14 @@ interface ProductRow {
   mrp: number;
   color: string;
   material: string;
+  description: string | null;
   fit_score: number;
   confidence: number;
   breakdown: unknown;
   source: string;
   product_url: string | null;
   image_url: string | null;
+  image_urls: string[] | null;
   size_chart: unknown;
 }
 
@@ -37,12 +39,14 @@ function rowToProduct(row: ProductRow): Product {
     mrp: row.mrp,
     color: row.color,
     material: row.material,
+    description: row.description ?? '',
     fitScore: row.fit_score,
     confidence: row.confidence,
     breakdown: (row.breakdown ?? []) as Product['breakdown'],
     source: row.source,
     productUrl: row.product_url ?? undefined,
     imageUrl: row.image_url ?? undefined,
+    imageUrls: row.image_urls ?? [],
     sizeChart: row.size_chart ?? undefined,
   };
 }

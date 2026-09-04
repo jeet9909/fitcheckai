@@ -28,11 +28,13 @@ function makeProduct(overrides: Partial<Product> & { id: number }): Product {
     mrp: 200,
     color: 'green',
     material: 'Cotton',
+    description: '',
     fitScore: 80,
     confidence: 80,
     breakdown: [],
     source: 'live',
     imageUrl: undefined,
+    imageUrls: [],
     sizeChart: undefined,
     ...overrides,
   };

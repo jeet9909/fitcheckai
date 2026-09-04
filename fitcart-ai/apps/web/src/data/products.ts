@@ -19,6 +19,8 @@ export interface Product {
   mrp: number;
   color: string;
   material: string;
+  /** Curator-authored, defaults to '' — most products don't have one yet. */
+  description: string;
   fitScore: number;
   confidence: number;
   breakdown: BreakdownRow[];
@@ -26,6 +28,8 @@ export interface Product {
   /** Present on products pulled in by the fetch-product Edge Function. */
   productUrl?: string;
   imageUrl?: string;
+  /** Curator-authored gallery, defaults to [] — most products don't have one yet. */
+  imageUrls: string[];
   sizeChart?: unknown;
 }
 

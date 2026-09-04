@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../data/products';
 
@@ -45,11 +45,13 @@ function makeProduct(overrides: Partial<Product> & { id: number }): Product {
     mrp: 200,
     color: 'green',
     material: 'Cotton',
+    description: '',
     fitScore: 80,
     confidence: 80,
     breakdown: [],
     source: 'live',
     imageUrl: undefined,
+    imageUrls: [],
     sizeChart: undefined,
     ...overrides,
   };
@@ -221,6 +223,141 @@ describe('ProductDetail', () => {
       expect(screen.getByText('Confidence 82%')).toBeInTheDocument();
       expect(screen.getByText('Shoulders')).toBeInTheDocument();
       expect(screen.queryByText(/isn't available for this item yet/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('curated data (description / gallery / size chart)', () => {
+    it('renders exactly as before — no gallery strip, no description section, no size-chart block — for a product with no curated data (the common case)', () => {
+      productsMock = [makeProduct({ id: 30, name: 'Plain Product', description: '', imageUrls: [], sizeChart: undefined })];
+      fetchMatchGroupMock.mockResolvedValue([]);
+      paramsId = '30';
+
+      const { container } = render(<ProductDetail />);
+
+      expect(screen.getByText('Plain Product')).toBeInTheDocument();
+      // No thumbnail strip.
+      expect(screen.queryByRole('button', { name: /Show image/i })).not.toBeInTheDocument();
+      // Exactly one <img> on the page — the single main product image.
+      expect(container.querySelectorAll('img')).toHaveLength(1);
+      // No description section.
+      expect(screen.queryByText('Description')).not.toBeInTheDocument();
+      // No size-chart section.
+      expect(screen.queryByText('Size chart')).not.toBeInTheDocument();
+    });
+
+    it('renders a clickable thumbnail strip that changes the main image on click when imageUrls is populated', () => {
+      productsMock = [makeProduct({
+        id: 31,
+        name: 'Gallery Product',
+        imageUrl: 'https://cdn.example.com/main.jpg',
+        imageUrls: ['https://cdn.example.com/alt1.jpg', 'https://cdn.example.com/alt2.jpg'],
+      })];
+      fetchMatchGroupMock.mockResolvedValue([]);
+      paramsId = '31';
+
+      const { container } = render(<ProductDetail />);
+
+      // Main image + imageUrl-as-first-thumbnail + 2 gallery thumbnails = 4 <img>s.
+      expect(container.querySelectorAll('img')).toHaveLength(4);
+      const mainImage = container.querySelector('img') as HTMLImageElement;
+      expect(mainImage.src).toBe('https://cdn.example.com/main.jpg');
+
+      const secondThumb = screen.getByRole('button', { name: 'Show image 2 of 3' });
+      fireEvent.click(secondThumb);
+
+      expect((container.querySelector('img') as HTMLImageElement).src).toBe('https://cdn.example.com/alt1.jpg');
+    });
+
+    it('degrades a single broken thumbnail to a placeholder without affecting the other thumbnails', () => {
+      productsMock = [makeProduct({
+        id: 38,
+        name: 'Partially Broken Gallery Product',
+        imageUrl: 'https://cdn.example.com/main.jpg',
+        imageUrls: ['https://cdn.example.com/good.jpg', 'https://cdn.example.com/broken.jpg'],
+      })];
+      fetchMatchGroupMock.mockResolvedValue([]);
+      paramsId = '38';
+
+      const { container } = render(<ProductDetail />);
+
+      const brokenThumbButton = screen.getByRole('button', { name: 'Show image 3 of 3' });
+      const brokenThumbImg = brokenThumbButton.querySelector('img') as HTMLImageElement;
+      expect(brokenThumbImg).not.toBeNull();
+
+      fireEvent.error(brokenThumbImg);
+
+      // The broken thumbnail degrades to a placeholder tile instead of being
+      // left as the browser's native broken-image icon — its <img> is gone.
+      expect(brokenThumbButton.querySelector('img')).toBeNull();
+      expect(brokenThumbButton.querySelector('.placeholder-swatch')).not.toBeNull();
+
+      // The other thumbnails are unaffected — still rendered as real <img>s
+      // and still clickable to change the main image.
+      const goodThumbButton = screen.getByRole('button', { name: 'Show image 2 of 3' });
+      expect(goodThumbButton.querySelector('img')).not.toBeNull();
+
+      fireEvent.click(goodThumbButton);
+
+      expect((container.querySelector('img') as HTMLImageElement).src).toBe('https://cdn.example.com/good.jpg');
+    });
+
+    it('renders the description when present', () => {
+      productsMock = [makeProduct({ id: 32, name: 'Described Product', description: 'A soft, breathable everyday tee.' })];
+      fetchMatchGroupMock.mockResolvedValue([]);
+      paramsId = '32';
+
+      render(<ProductDetail />);
+
+      expect(screen.getByText('Description')).toBeInTheDocument();
+      expect(screen.getByText('A soft, breathable everyday tee.')).toBeInTheDocument();
+    });
+
+    it('renders nothing extra when description is empty', () => {
+      productsMock = [makeProduct({ id: 33, name: 'Undescribed Product', description: '' })];
+      fetchMatchGroupMock.mockResolvedValue([]);
+      paramsId = '33';
+
+      render(<ProductDetail />);
+
+      expect(screen.queryByText('Description')).not.toBeInTheDocument();
+    });
+
+    it('renders size-chart rows for a well-formed sizeChart object', () => {
+      productsMock = [makeProduct({
+        id: 34,
+        name: 'Sized Product',
+        sizeChart: { Chest: '38-40in', Waist: '32-34in' },
+      })];
+      fetchMatchGroupMock.mockResolvedValue([]);
+      paramsId = '34';
+
+      render(<ProductDetail />);
+
+      expect(screen.getByText('Size chart')).toBeInTheDocument();
+      expect(screen.getByText('Chest')).toBeInTheDocument();
+      expect(screen.getByText('38-40in')).toBeInTheDocument();
+      expect(screen.getByText('Waist')).toBeInTheDocument();
+      expect(screen.getByText('32-34in')).toBeInTheDocument();
+    });
+
+    it('does not crash and renders no size-chart section for a malformed (non-object) sizeChart value', () => {
+      productsMock = [makeProduct({ id: 35, name: 'Malformed String Product', sizeChart: 'not an object' })];
+      fetchMatchGroupMock.mockResolvedValue([]);
+      paramsId = '35';
+
+      expect(() => render(<ProductDetail />)).not.toThrow();
+      expect(screen.getByText('Malformed String Product')).toBeInTheDocument();
+      expect(screen.queryByText('Size chart')).not.toBeInTheDocument();
+    });
+
+    it('does not crash and renders no size-chart section for a null sizeChart value', () => {
+      productsMock = [makeProduct({ id: 36, name: 'Null Size Chart Product', sizeChart: null })];
+      fetchMatchGroupMock.mockResolvedValue([]);
+      paramsId = '36';
+
+      expect(() => render(<ProductDetail />)).not.toThrow();
+      expect(screen.getByText('Null Size Chart Product')).toBeInTheDocument();
+      expect(screen.queryByText('Size chart')).not.toBeInTheDocument();
     });
   });
 });
