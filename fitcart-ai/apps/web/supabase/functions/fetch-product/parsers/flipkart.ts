@@ -26,14 +26,43 @@ export const parse: Parser = (html, _url) => {
 
     if (!name || !price) return null;
 
+    // Best-effort probes at the same unstable state shape for the richer
+    // fields — never verified against a real captured Flipkart product page
+    // this session (unlike Amazon's regexes above, which were built and
+    // tested against 7 real pages), so these are honest guesses at plausible
+    // key paths, not a confirmed contract. Any path that doesn't resolve to
+    // the right primitive type falls through to null/[] exactly like a page
+    // that genuinely never carried the data — never a fabricated value.
+    const descriptionRaw = state?.pageDataV4?.page?.data?.description
+      ?? state?.PRODUCT_SUMMARY?.[0]?.productInfo?.description;
+    const description = typeof descriptionRaw === 'string' && descriptionRaw.trim().length > 0
+      ? descriptionRaw.trim()
+      : null;
+
+    const materialRaw = state?.pageDataV4?.page?.data?.specifications?.material;
+    const material = typeof materialRaw === 'string' && materialRaw.trim().length > 0
+      ? materialRaw.trim()
+      : null;
+
+    const rawImages = state?.pageDataV4?.page?.data?.media?.images
+      ?? state?.PRODUCT_SUMMARY?.[0]?.media?.images;
+    const imageUrls = Array.isArray(rawImages)
+      ? rawImages
+        .map((entry: unknown) => (typeof entry === 'string' ? entry : (entry as Record<string, unknown> | undefined)?.url))
+        .filter((url: unknown): url is string => typeof url === 'string' && url.length > 0)
+      : [];
+
     return {
       name,
       brand: 'Unknown',
       price: Number(price),
       mrp: Number(price),
       color: '',
-      imageUrl: null,
       sizeChart: null,
+      description,
+      material,
+      imageUrl: imageUrls[0] ?? null,
+      imageUrls,
     };
   } catch {
     return null;

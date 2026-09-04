@@ -10,12 +10,28 @@ const NAMED_HTML_ENTITIES: Record<string, string> = {
   quot: '"',
   apos: "'",
   nbsp: ' ',
+  mdash: '—',
+  ndash: '–',
+  hellip: '…',
+  lsquo: '‘',
+  rsquo: '’',
+  ldquo: '“',
+  rdquo: '”',
+  reg: '®',
+  trade: '™',
+  deg: '°',
 };
 
-// Decodes the small set of HTML entities that actually show up in Amazon/
-// Flipkart search-result markup (apostrophes and ampersands in titles,
-// mainly). Not a full HTML-entity table — deliberately scoped to what's
-// needed here rather than pulling in an HTML-entities dependency.
+// Decodes the set of HTML entities that show up in real marketplace markup
+// this codebase parses — originally just Amazon/Flipkart search-result
+// tiles (apostrophes and ampersands in short titles), but textFromHtml
+// (which calls this) is now also used by fetch-product/parsers/amazon.ts to
+// pull real product-description/material prose out of Amazon product pages
+// — longer marketing copy that routinely uses em/en dashes, ellipses, curly
+// quotes, and ®/™/° marks that a short search-tile title rarely does, hence
+// the larger table below. Still not a full HTML-entity table — deliberately
+// scoped to what's actually been observed in real marketplace markup rather
+// than pulling in an HTML-entities dependency.
 export function decodeHtmlEntities(input: string): string {
   return input.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity: string) => {
     if (entity[0] === '#') {
@@ -75,7 +91,13 @@ export function parseIndianPrice(text: string): number | null {
 // runMarketplaceSearch() call (and, via the platform's own function-level
 // timeout, potentially the whole request) instead of cleanly resolving to
 // an honest 'failed' outcome.
-const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
+//
+// Exported (not just module-local) because enrich-catalog/index.ts's own
+// per-invocation wall-clock budget arithmetic and elapsed-time guard need
+// this exact value too, for its own fetchWithTimeout call against product
+// pages — importing it keeps both call sites' timeout assumptions from
+// silently drifting apart.
+export const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 
 // Wraps `fetch` with an AbortController-based timeout. Rejects with an
 // Error (never resolves indefinitely) if the timeout elapses first — the

@@ -27,6 +27,25 @@ function isKnownStore(store: string): store is Store {
   return KNOWN_STORES.has(store);
 }
 
+// Shared field-size/count caps — the single source of truth for both
+// callers of updateProduct(): curate-product/index.ts's HTTP layer (which
+// re-checks these up front for a fast, pre-DB-lookup 400) and updateProduct
+// itself (enforced below, unconditionally, for *every* caller — including
+// fetch-product/index.ts's enrichment write and enrich-catalog/candidates.ts's
+// batch loop, neither of which goes through curate-product/index.ts's HTTP
+// validation at all). Moving these here — rather than leaving them only in
+// curate-product/index.ts — is what closes that gap: a caller that reaches
+// updateProduct() directly can no longer bypass them, by construction, not
+// by convention.
+export const MAX_DESCRIPTION_LENGTH = 5000;
+// Short free-text fields — same cap curate-match uses for its own `label`.
+export const MAX_SHORT_FIELD_LENGTH = 200;
+// ~4KB of serialized JSON — generous for any real chest/waist/inseam-style
+// chart, but a real cap against a pathologically huge payload.
+export const MAX_SIZE_CHART_JSON_LENGTH = 4000;
+export const MAX_IMAGE_URLS = 10;
+export const MAX_IMAGE_URL_LENGTH = 2000;
+
 export interface UpdateProductInput {
   productId: number;
   description?: string;
@@ -64,7 +83,14 @@ interface ProductStoreRow {
 // Updates only the fields actually present on `input` — a real partial
 // update (`UPDATE products SET <only the provided columns> WHERE id = ...`),
 // never a full-row overwrite that would blank out fields the curator didn't
-// mention this time. Steps, every one a real DB check, nothing assumed:
+// mention this time. Steps:
+//   0. every provided field is checked against the shared MAX_* caps above
+//      (length/count only — pure, no DB) — enforced here, not only in
+//      curate-product/index.ts's HTTP layer, so a caller that reaches this
+//      function directly (fetch-product/index.ts's enrichment write,
+//      enrich-catalog/candidates.ts's batch loop) gets the exact same
+//      protection a human curator's HTTP request already does, never a
+//      bypass.
 //   1. `productId` must already exist in `products` (real SELECT, same
 //      posture as curate-match's productIds check).
 //   2. if `imageUrls` is present, every URL must pass isAllowedMarketplaceUrl
@@ -78,6 +104,49 @@ export async function updateProduct(
   input: UpdateProductInput,
 ): Promise<UpdateProductResult> {
   const { productId, description, material, sizeChart, imageUrls } = input;
+
+  // Size/count validation, enforced here (not just in curate-product/
+  // index.ts's HTTP layer) so every caller gets the same real protection —
+  // including fetch-product/index.ts's enrichment write and
+  // enrich-catalog/candidates.ts's batch loop, neither of which is
+  // HTTP-request-validated the way curate-product/index.ts's own callers
+  // are. Checked before the DB lookup below: a doomed request shouldn't cost
+  // a round trip, same "fail fast on shape/size before touching the DB"
+  // posture curate-product/index.ts's own pre-checks already have.
+  if (description !== undefined && description.length > MAX_DESCRIPTION_LENGTH) {
+    return { ok: false, status: 400, error: `\`description\` too long — max ${MAX_DESCRIPTION_LENGTH} characters.` };
+  }
+  if (material !== undefined && material.length > MAX_SHORT_FIELD_LENGTH) {
+    return { ok: false, status: 400, error: `\`material\` too long — max ${MAX_SHORT_FIELD_LENGTH} characters.` };
+  }
+  if (sizeChart !== undefined) {
+    let serializedLength: number;
+    try {
+      serializedLength = JSON.stringify(sizeChart).length;
+    } catch {
+      return { ok: false, status: 400, error: '`sizeChart` could not be serialized — it must be plain JSON-safe data.' };
+    }
+    if (serializedLength > MAX_SIZE_CHART_JSON_LENGTH) {
+      return {
+        ok: false,
+        status: 400,
+        error: `\`sizeChart\` too large — serialized JSON must be at most ${MAX_SIZE_CHART_JSON_LENGTH} characters.`,
+      };
+    }
+  }
+  if (imageUrls !== undefined) {
+    if (imageUrls.length > MAX_IMAGE_URLS) {
+      return { ok: false, status: 400, error: `\`imageUrls\` must contain at most ${MAX_IMAGE_URLS} URLs.` };
+    }
+    const tooLong = imageUrls.find((url) => url.length > MAX_IMAGE_URL_LENGTH);
+    if (tooLong !== undefined) {
+      return {
+        ok: false,
+        status: 400,
+        error: `\`imageUrls\` contains a URL longer than ${MAX_IMAGE_URL_LENGTH} characters.`,
+      };
+    }
+  }
 
   const { data: productRow, error: lookupError } = await supabaseAdmin
     .from('products')

@@ -11,7 +11,14 @@
 // conflict rather than a false success.
 
 import { assert, assertEquals } from '../search-products/_testUtils.ts';
-import { updateProduct } from './updateProduct.ts';
+import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_IMAGE_URL_LENGTH,
+  MAX_IMAGE_URLS,
+  MAX_SHORT_FIELD_LENGTH,
+  MAX_SIZE_CHART_JSON_LENGTH,
+  updateProduct,
+} from './updateProduct.ts';
 
 interface FakeOptions {
   product?: { id: number; store: string } | null;
@@ -225,6 +232,110 @@ Deno.test('updateProduct: filters the UPDATE by both `id` and the just-looked-up
     ['id', 8],
     ['store', 'Nykaa Fashion'],
   ]);
+});
+
+// --- Field size/count validation ---
+//
+// This is the fix for the QA-proven bug: updateProduct() previously had no
+// length/count validation of its own — those caps lived only in
+// curate-product/index.ts's HTTP request-validation layer, which
+// fetch-product/index.ts and enrich-catalog/candidates.ts never go through
+// (they call updateProduct() directly). A runnable PoC confirmed
+// updateProduct() would accept 500 image URLs and a 200,000-character
+// description with no rejection at all. These tests exercise updateProduct()
+// itself, with no HTTP layer involved, proving the caps now live here too.
+//
+// A fake client that throws on any `.from()` call proves these checks run
+// *before* any DB round trip (same "fail fast on shape/size before touching
+// the DB" posture curate-product/index.ts's own pre-checks already have) —
+// stronger than merely asserting the UPDATE was never issued.
+// deno-lint-ignore no-explicit-any
+function createDbTouchForbiddenClient(): any {
+  return {
+    from(table: string): never {
+      throw new Error(`updateProduct must not touch the DB (table "${table}") for input that fails validation`);
+    },
+  };
+}
+
+Deno.test('updateProduct: rejects an oversized `description` with a clean 400, without touching the DB', async () => {
+  const client = createDbTouchForbiddenClient();
+
+  const result = await updateProduct(client, { productId: 1, description: 'x'.repeat(MAX_DESCRIPTION_LENGTH + 1) });
+
+  assert(!result.ok);
+  if (!result.ok) {
+    assertEquals(result.status, 400);
+    assert(result.error.includes('description'), result.error);
+  }
+});
+
+Deno.test('updateProduct: rejects an oversized `material` with a clean 400, without touching the DB', async () => {
+  const client = createDbTouchForbiddenClient();
+
+  const result = await updateProduct(client, { productId: 1, material: 'x'.repeat(MAX_SHORT_FIELD_LENGTH + 1) });
+
+  assert(!result.ok);
+  if (!result.ok) {
+    assertEquals(result.status, 400);
+    assert(result.error.includes('material'), result.error);
+  }
+});
+
+Deno.test('updateProduct: rejects an oversized `sizeChart` (serialized JSON over the cap) with a clean 400, without touching the DB', async () => {
+  const client = createDbTouchForbiddenClient();
+
+  const result = await updateProduct(client, {
+    productId: 1,
+    sizeChart: { chest: 'x'.repeat(MAX_SIZE_CHART_JSON_LENGTH) },
+  });
+
+  assert(!result.ok);
+  if (!result.ok) {
+    assertEquals(result.status, 400);
+    assert(result.error.includes('sizeChart'), result.error);
+  }
+});
+
+Deno.test('updateProduct: rejects an `imageUrls` array over the max count with a clean 400, without touching the DB', async () => {
+  const client = createDbTouchForbiddenClient();
+
+  const imageUrls = Array.from({ length: MAX_IMAGE_URLS + 1 }, (_, i) => `https://images.amazon.in/img${i}.jpg`);
+  const result = await updateProduct(client, { productId: 1, imageUrls });
+
+  assert(!result.ok);
+  if (!result.ok) {
+    assertEquals(result.status, 400);
+    assert(result.error.includes('imageUrls'), result.error);
+  }
+});
+
+Deno.test('updateProduct: rejects an individual `imageUrls` entry over the max URL length with a clean 400, without touching the DB', async () => {
+  const client = createDbTouchForbiddenClient();
+
+  const tooLongUrl = 'https://images.amazon.in/' + 'x'.repeat(MAX_IMAGE_URL_LENGTH) + '.jpg';
+  const result = await updateProduct(client, { productId: 1, imageUrls: [tooLongUrl] });
+
+  assert(!result.ok);
+  if (!result.ok) {
+    assertEquals(result.status, 400);
+    assert(result.error.includes('imageUrls'), result.error);
+  }
+});
+
+// QA's exact PoC values: 500 image URLs and a 200,000-character description,
+// confirmed pre-fix to be accepted with no rejection at all.
+Deno.test('updateProduct: rejects the exact QA PoC payload (500 image URLs + a 200,000-character description)', async () => {
+  const client = createDbTouchForbiddenClient();
+
+  const result = await updateProduct(client, {
+    productId: 1,
+    description: 'x'.repeat(200_000),
+    imageUrls: Array.from({ length: 500 }, (_, i) => `https://images.amazon.in/img${i}.jpg`),
+  });
+
+  assert(!result.ok, 'the QA PoC payload must now be rejected');
+  if (!result.ok) assertEquals(result.status, 400);
 });
 
 Deno.test('updateProduct: a store change between the SELECT and the UPDATE (zero rows affected) is a clean 400 conflict, never a silent success', async () => {

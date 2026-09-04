@@ -20,11 +20,19 @@ export const parse: Parser = (html, _url) => {
       mrp: jsonLd.price,
       color: '',
       imageUrl: jsonLd.imageUrl ?? null,
+      // Size chart is genuinely unreachable via plain fetch (see the header
+      // comment above) — never guessed at. `description`/`material`/
+      // `imageUrls` come straight from the JSON-LD block when it states
+      // them; `null`/`[]` (never fabricated) when it doesn't.
       sizeChart: null,
+      description: jsonLd.description ?? null,
+      material: jsonLd.material ?? null,
+      imageUrls: jsonLd.imageUrls ?? [],
     };
   }
 
   // Fallback: Myntra embeds a window.__myx state blob on some page variants.
+  // This shell alone carries no description/material/gallery signal at all.
   const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
   if (!titleMatch) return null;
 
@@ -36,5 +44,8 @@ export const parse: Parser = (html, _url) => {
     color: '',
     imageUrl: null,
     sizeChart: null,
+    description: null,
+    material: null,
+    imageUrls: [],
   };
 };

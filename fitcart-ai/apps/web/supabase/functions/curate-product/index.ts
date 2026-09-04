@@ -74,7 +74,14 @@
 // error is logged server-side only, never in the response body.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { updateProduct } from './updateProduct.ts';
+import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_IMAGE_URL_LENGTH,
+  MAX_IMAGE_URLS,
+  MAX_SHORT_FIELD_LENGTH,
+  MAX_SIZE_CHART_JSON_LENGTH,
+  updateProduct,
+} from './updateProduct.ts';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -86,14 +93,14 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-curate-product-secret',
 };
 
-const MAX_DESCRIPTION_LENGTH = 5000;
-// Short free-text fields — same cap curate-match uses for its own `label`.
-const MAX_SHORT_FIELD_LENGTH = 200;
-// ~4KB of serialized JSON — generous for any real chest/waist/inseam-style
-// chart, but a real cap against a pathologically huge payload.
-const MAX_SIZE_CHART_JSON_LENGTH = 4000;
-const MAX_IMAGE_URLS = 10;
-const MAX_IMAGE_URL_LENGTH = 2000;
+// MAX_DESCRIPTION_LENGTH / MAX_SHORT_FIELD_LENGTH / MAX_SIZE_CHART_JSON_LENGTH
+// / MAX_IMAGE_URLS / MAX_IMAGE_URL_LENGTH are imported from updateProduct.ts
+// (single source of truth — see its own comment on why) rather than
+// redefined here. This layer's own checks below are a fast-path only: they
+// give a clean 400 before ever querying the DB, but updateProduct() enforces
+// the exact same caps again itself, since it's also called directly by
+// fetch-product/index.ts and enrich-catalog/candidates.ts, neither of which
+// goes through this HTTP validation layer at all.
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {

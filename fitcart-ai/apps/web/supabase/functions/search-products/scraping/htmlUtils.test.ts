@@ -8,7 +8,27 @@
 // already cover end-to-end.
 
 import { assert, assertEquals, assertRejects } from '../_testUtils.ts';
-import { isExpectedHost, parseIndianPrice, readCappedText, upsizeAmazonImageUrl } from './htmlUtils.ts';
+import { decodeHtmlEntities, isExpectedHost, parseIndianPrice, readCappedText, textFromHtml, upsizeAmazonImageUrl } from './htmlUtils.ts';
+
+// Regression coverage for the entity table's growth: fetch-product/parsers/
+// amazon.ts now routes real Amazon product-description/material prose
+// through textFromHtml (a use this table's original scoping comment never
+// anticipated — it was written for short search-tile titles only), and real
+// marketing copy routinely uses these named entities.
+Deno.test('decodeHtmlEntities: decodes the marketing-copy entities added for description/material prose', () => {
+  assertEquals(decodeHtmlEntities('Premium quality &mdash; built to last'), 'Premium quality — built to last');
+  assertEquals(decodeHtmlEntities('100% cotton &ndash; breathable'), '100% cotton – breathable');
+  assertEquals(decodeHtmlEntities('Soft, durable&hellip;'), 'Soft, durable…');
+  assertEquals(decodeHtmlEntities('&lsquo;Classic Fit&rsquo;'), '‘Classic Fit’');
+  assertEquals(decodeHtmlEntities('&ldquo;Machine washable&rdquo;'), '“Machine washable”');
+  assertEquals(decodeHtmlEntities('Acme&reg; Sportswear&trade;'), 'Acme® Sportswear™');
+  assertEquals(decodeHtmlEntities('Fits up to 40&deg;C wash'), 'Fits up to 40°C wash');
+});
+
+Deno.test('textFromHtml: strips tags and decodes the new entities together, as amazon.ts\'s description extraction relies on', () => {
+  const html = '<span>Premium fabric &mdash; a &ldquo;classic&rdquo; fit&hellip;</span>';
+  assertEquals(textFromHtml(html), 'Premium fabric — a “classic” fit…');
+});
 
 Deno.test('readCappedText: returns the full body when under the cap', async () => {
   const res = new Response('hello world', { status: 200 });
