@@ -30,7 +30,7 @@ ${JSON.stringify({
       '@type': 'Product',
       name: 'JSON-LD Cotton Shirt',
       url: 'https://www.amazon.in/dp/JSONLD123',
-      image: 'https://m.media-amazon.com/images/jsonld.jpg',
+      image: 'https://m.media-amazon.com/images/I/jsonld123._AC_UL320_.jpg',
       brand: { name: 'JsonBrand' },
       offers: { price: '999', priceCurrency: 'INR' },
     },
@@ -43,7 +43,7 @@ const TILE_HTML = `<html><body>
 <div role="listitem" data-asin="B0TESTASIN1" data-component-type="s-search-result" class="s-result-item">
   <h2 class="brand-h2"><span>BrandOnly</span></h2>
   <a href="/dp/B0TESTASIN1"><h2 class="title-h2"><span>Men&#x27;s Solid Cotton Casual Shirt Full Sleeve</span></h2></a>
-  <img class="s-image" src="https://m.media-amazon.com/images/tile.jpg" />
+  <img class="s-image" src="https://m.media-amazon.com/images/I/tile123._AC_UL320_.jpg" />
   <span class="a-price" data-a-size="xl" data-a-color="base"><span class="a-offscreen">₹799</span></span>
   <span class="a-price a-text-price" data-a-size="b" data-a-strike="true" data-a-color="secondary"><span class="a-offscreen">₹1,299</span></span>
 </div>
@@ -78,6 +78,9 @@ Deno.test('amazonSearchScraper: JSON-LD success path', async () => {
       assertEquals(outcome.listings[0].price, 999);
       assertEquals(outcome.listings[0].productUrl, 'https://www.amazon.in/dp/JSONLD123');
       assertEquals(outcome.listings[0].store, 'Amazon');
+      // Upsized from the raw ._AC_UL320_ thumbnail the fixture used —
+      // regression check for the 2026-09-04 low-resolution-image fix.
+      assertEquals(outcome.listings[0].imageUrl, 'https://m.media-amazon.com/images/I/jsonld123._AC_SL1500_.jpg');
     },
   );
 });
@@ -93,7 +96,9 @@ Deno.test('amazonSearchScraper: HTML-tile fallback success path when no JSON-LD 
       assertEquals(listing.name, "Men's Solid Cotton Casual Shirt Full Sleeve");
       assertEquals(listing.price, 799);
       assertEquals(listing.mrp, 1299);
-      assertEquals(listing.imageUrl, 'https://m.media-amazon.com/images/tile.jpg');
+      // Upsized from the raw ._AC_UL320_ thumbnail the fixture used —
+      // regression check for the 2026-09-04 low-resolution-image fix.
+      assertEquals(listing.imageUrl, 'https://m.media-amazon.com/images/I/tile123._AC_SL1500_.jpg');
       assertEquals(listing.productUrl, 'https://www.amazon.in/dp/B0TESTASIN1');
       assertEquals(listing.store, 'Amazon');
     },

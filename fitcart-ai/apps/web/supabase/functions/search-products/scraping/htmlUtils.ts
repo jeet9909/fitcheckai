@@ -179,3 +179,26 @@ export function isExpectedHost(url: string, expectedHost: string): boolean {
     return false;
   }
 }
+
+// Amazon's search-result tile markup embeds a small thumbnail (observed
+// live: `..._AC_UL320_.jpg`, ~7KB) even though the exact same image is
+// available at full product-page resolution on the identical CDN path —
+// only the size token between the image id and the file extension differs.
+// Confirmed live 2026-09-04: swapping that token for `_AC_SL1500_` on a real
+// captured URL returns a real 200 at ~5-20x the byte size, same image.
+// Every URL this scraper (and amazonSearchScraper.ts's JSON-LD path) stores
+// should go through this before being persisted — nothing here re-fetches
+// or re-scrapes anything, it's a pure string transform on data already in
+// hand. Not applied to amazonBrowseNodeScraper.ts's images, which already
+// select the deals widget's own `hiRes` variant (a real large image with
+// explicit width/height in the source payload, not a thumbnail token).
+//
+// Handles both a single size token (`._AC_UL320_.jpg`) and a compound one
+// (`._AC_UL225_SR225,160_.jpg`, observed on the browse-node deals widget's
+// tile markup) by replacing everything between the image id and the file
+// extension, rather than trying to pattern-match every token Amazon uses.
+const AMAZON_IMAGE_SIZE_TOKEN_RE = /(\/images\/I\/[^./]+)\.[^/]*\.(jpg|jpeg|png|webp)(\?.*)?$/i;
+
+export function upsizeAmazonImageUrl(url: string): string {
+  return url.replace(AMAZON_IMAGE_SIZE_TOKEN_RE, '$1._AC_SL1500_.$2$3');
+}

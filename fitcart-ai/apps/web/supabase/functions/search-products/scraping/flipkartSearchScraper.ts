@@ -164,12 +164,16 @@ interface FlipkartProductValue {
 // Substitutes Flipkart's `{@width}`/`{@height}`/`{@quality}` image-URL
 // template placeholders (confirmed live 2026-09-02) with fixed values —
 // there's no natural "real" size to prefer here since the listing UI picks
-// its own size; 200x200 at quality 70 is a reasonable thumbnail default.
+// its own size. Was 200x200/q70 (a visibly blurry thumbnail once rendered
+// at product-detail size) — bumped to 832x832/q80 2026-09-04 after
+// confirming live that Flipkart's CDN serves a real, correctly-sized image
+// at this size on the same template/path, not just a larger blur (see
+// supabase/README.md's image-quality entry for the verification).
 function finalizeFlipkartImageUrl(template: string): string {
   return template
-    .replace('{@width}', '200')
-    .replace('{@height}', '200')
-    .replace('{@quality}', '70')
+    .replace('{@width}', '832')
+    .replace('{@height}', '832')
+    .replace('{@quality}', '80')
     .replace(/^http:/, 'https:');
 }
 

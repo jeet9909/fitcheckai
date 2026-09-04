@@ -185,7 +185,11 @@ Deno.test('flipkartSearchScraper: falls back to __INITIAL_STATE__ when JSON-LD h
       assertEquals(listing.price, 288);
       assertEquals(listing.mrp, 999);
       assertEquals(listing.productUrl, 'https://www.flipkart.com/metronaut-shirt/p/itmabc123?pid=SHT123');
-      assert(listing.imageUrl?.includes('200') ?? false, `expected placeholder substitution in ${listing.imageUrl}`);
+      // 832x832/q80, not the old 200x200/q70 thumbnail — bumped 2026-09-04,
+      // the 200x200 size was visibly blurry once rendered at product-detail
+      // size (see htmlUtils.ts's upsizeAmazonImageUrl comment for the
+      // equivalent Amazon-side fix).
+      assert(listing.imageUrl?.includes('832') ?? false, `expected the 832x832 placeholder substitution in ${listing.imageUrl}`);
       assertEquals(listing.store, 'Flipkart');
     },
   );

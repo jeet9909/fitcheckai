@@ -34,7 +34,7 @@
 
 import { extractJsonLdBlocks } from '../../_shared/jsonld.ts';
 import type { ScrapeOutcome, ScrapedListing } from './types.ts';
-import { capMessage, fetchWithTimeout, isExpectedHost, parseIndianPrice, readCappedText, textFromHtml } from './htmlUtils.ts';
+import { capMessage, fetchWithTimeout, isExpectedHost, parseIndianPrice, readCappedText, textFromHtml, upsizeAmazonImageUrl } from './htmlUtils.ts';
 
 const SEARCH_URL_BASE = 'https://www.amazon.in/s?k=';
 const EXPECTED_HOST = 'amazon.in';
@@ -80,7 +80,8 @@ function listingsFromJsonLd(blocks: unknown[]): ScrapedListing[] {
         if (!name || !productUrl || price === null) continue;
 
         const image = entry.image;
-        const imageUrl = typeof image === 'string' ? image : Array.isArray(image) && typeof image[0] === 'string' ? (image[0] as string) : null;
+        const rawImageUrl = typeof image === 'string' ? image : Array.isArray(image) && typeof image[0] === 'string' ? (image[0] as string) : null;
+        const imageUrl = rawImageUrl ? upsizeAmazonImageUrl(rawImageUrl) : null;
 
         listings.push({
           name,
@@ -142,7 +143,8 @@ function listingsFromTileHtml(html: string): ScrapedListing[] {
     const mrpText = MRP_RE.exec(tile)?.[1];
     const mrp = mrpText ? parseIndianPrice(mrpText) : null;
 
-    const imageUrl = IMAGE_RE.exec(tile)?.[1] ?? null;
+    const rawImageUrl = IMAGE_RE.exec(tile)?.[1] ?? null;
+    const imageUrl = rawImageUrl ? upsizeAmazonImageUrl(rawImageUrl) : null;
 
     listings.push({
       name,

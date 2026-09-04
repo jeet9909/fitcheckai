@@ -8,7 +8,7 @@
 // already cover end-to-end.
 
 import { assert, assertEquals, assertRejects } from '../_testUtils.ts';
-import { isExpectedHost, parseIndianPrice, readCappedText } from './htmlUtils.ts';
+import { isExpectedHost, parseIndianPrice, readCappedText, upsizeAmazonImageUrl } from './htmlUtils.ts';
 
 Deno.test('readCappedText: returns the full body when under the cap', async () => {
   const res = new Response('hello world', { status: 200 });
@@ -96,4 +96,30 @@ Deno.test('parseIndianPrice: a plain comma-separated number with no currency mar
 Deno.test('parseIndianPrice: an empty/non-numeric string returns null rather than 0 or NaN', () => {
   assertEquals(parseIndianPrice(''), null);
   assertEquals(parseIndianPrice('Currently unavailable'), null);
+});
+
+Deno.test('upsizeAmazonImageUrl: swaps a single size token for a full-resolution one', () => {
+  assertEquals(
+    upsizeAmazonImageUrl('https://m.media-amazon.com/images/I/51KYvMSM-DL._AC_UL320_.jpg'),
+    'https://m.media-amazon.com/images/I/51KYvMSM-DL._AC_SL1500_.jpg',
+  );
+});
+
+Deno.test('upsizeAmazonImageUrl: swaps a compound size token (e.g. a deals-widget tile URL) the same way', () => {
+  assertEquals(
+    upsizeAmazonImageUrl('https://m.media-amazon.com/images/I/41WWfdm+AsL._AC_UL225_SR225,160_.jpg'),
+    'https://m.media-amazon.com/images/I/41WWfdm+AsL._AC_SL1500_.jpg',
+  );
+});
+
+Deno.test('upsizeAmazonImageUrl: preserves a query string after the extension, if present', () => {
+  assertEquals(
+    upsizeAmazonImageUrl('https://m.media-amazon.com/images/I/51KYvMSM-DL._AC_UL320_.jpg?foo=bar'),
+    'https://m.media-amazon.com/images/I/51KYvMSM-DL._AC_SL1500_.jpg?foo=bar',
+  );
+});
+
+Deno.test("upsizeAmazonImageUrl: leaves a URL that doesn't match Amazon's /images/I/ pattern unchanged, rather than mangling it", () => {
+  const nonMatching = 'https://example.com/some/other/path.jpg';
+  assertEquals(upsizeAmazonImageUrl(nonMatching), nonMatching);
 });
