@@ -1,9 +1,9 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const ITEMS: { path: string; label: string; shape: string }[] = [
-  { path: '/setup', label: 'Try', shape: '5px 5px 0 0' },
-  { path: '/discover', label: 'Discover', shape: '5px' },
-  { path: '/saved', label: 'My Looks', shape: '50% 50% 50% 0' },
+  { path: '/setup', label: 'Try on', shape: '5px 5px 0 0' },
+  { path: '/discover', label: 'Browse', shape: '5px' },
+  { path: '/saved', label: 'My looks', shape: '50% 50% 50% 0' },
 ];
 
 export default function MobileNav() {

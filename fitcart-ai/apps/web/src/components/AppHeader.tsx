@@ -1,10 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
+import CurrencySelector from './CurrencySelector';
 
 const NAV_ITEMS: { path: string; label: string }[] = [
-  { path: '/discover', label: 'Discover' },
-  { path: '/setup', label: 'Try' },
-  { path: '/saved', label: 'My Looks' },
+  { path: '/discover', label: 'Browse' },
+  { path: '/setup', label: 'Try on' },
+  { path: '/saved', label: 'My looks' },
 ];
 
 export default function AppHeader() {
@@ -66,18 +67,19 @@ export default function AppHeader() {
         </nav>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div className="desktop-only" style={{ alignItems: 'center', gap: 8, background: 'var(--surface-alt)', borderRadius: 8, padding: '8px 12px', width: 220 }}>
+        <div className="desktop-only" style={{ alignItems: 'center', gap: 8, background: 'var(--surface-alt)', borderRadius: 8, padding: '8px 12px', width: 300 }}>
           <span style={{ width: 14, height: 14, border: '1.5px solid var(--ink-faint)', borderRadius: '50%', display: 'inline-block', position: 'relative', flex: 'none' }} />
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search FitCart"
+            placeholder="Search everywhere, or describe what you want"
             style={{ border: 'none', background: 'none', outline: 'none', fontSize: 13, color: 'var(--ink)', width: '100%' }}
           />
         </div>
+        <CurrencySelector />
         <button
           onClick={() => navigate('/profile')}
-          aria-label="Profile"
+          aria-label="Settings and appearance"
           style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--ink)', color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           A

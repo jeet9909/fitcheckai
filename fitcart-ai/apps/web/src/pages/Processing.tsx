@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const STEP_LABELS = [
-  'Reading the garment…',
-  'This brand runs small vs standard sizing',
-  'Matching to your shoulders and chest…',
-  'Checking against your saved size history…',
-  'Finalizing your render…',
+  'Understanding your photo',
+  'Matching the product',
+  'Adjusting the garment',
+  'Creating your preview',
+  'Almost ready',
 ];
 
 /**
@@ -51,7 +51,7 @@ export default function Processing() {
       </p>
 
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--ink-faint)', textTransform: 'uppercase', marginBottom: 10 }}>
-        Reading the garment
+        What FitCart is doing
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
         {STEP_LABELS.map((label, i) => {
@@ -66,6 +66,9 @@ export default function Processing() {
           );
         })}
       </div>
+      <p style={{ fontSize: 12.5, color: 'var(--ink-soft)', margin: '18px 0 0' }}>
+        You can leave this page. We will save the look to My looks.
+      </p>
 
       <button
         onClick={() => navigate('/')}

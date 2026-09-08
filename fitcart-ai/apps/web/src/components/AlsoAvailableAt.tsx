@@ -16,7 +16,7 @@ export default function AlsoAvailableAt({ members }: { members: Product[] }) {
 
   return (
     <section style={{ marginTop: 32, border: '1px solid var(--border)', borderRadius: 14, padding: 20, background: 'var(--surface-alt)' }}>
-      <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 14px' }}>Also available at</h3>
+      <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 14px' }}>Where to buy it</h3>
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {members.map((p) => (
           <li key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontSize: 13.5 }}>

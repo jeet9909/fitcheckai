@@ -1,18 +1,15 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import AppHeader from './AppHeader';
-import LandingHeader from './LandingHeader';
 import MobileNav from './MobileNav';
 import Toast from './Toast';
 import { useAppState } from '../state/AppState';
 
 export default function Layout() {
-  const location = useLocation();
-  const isLanding = location.pathname === '/';
   const { ready } = useAppState();
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
-      {isLanding ? <LandingHeader /> : <AppHeader />}
+      <AppHeader />
       {ready ? (
         <Outlet />
       ) : (

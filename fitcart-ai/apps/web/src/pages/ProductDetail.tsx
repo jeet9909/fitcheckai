@@ -1,13 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { discountLabel, fmt, confidenceBand, toneColor } from '../lib/format';
 import { fetchMatchGroup } from '../lib/api';
+import { ratingFromFitScore } from '../lib/ratingDisplay';
 import { useAppState } from '../state/AppState';
 import ProductImage from '../components/ProductImage';
 import Placeholder from '../components/Placeholder';
 import AlsoAvailableAt from '../components/AlsoAvailableAt';
 import SimilarProducts from '../components/SimilarProducts';
 import type { Product } from '../data/products';
+
+// Cosmetic-only — there is no real per-size stock/availability data anywhere
+// in this catalog (fetch-product's parsers all hardcode sizeChart: null, and
+// there's no per-size inventory signal — see
+// supabase/functions/fetch-product/parsers/*.ts). This picker exists purely
+// so the page has the size-selection affordance shoppers expect, but
+// selecting a chip only sets local component state; it must never be
+// presented as, or wired into, a real availability check until that data
+// actually exists.
+const COSMETIC_SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
 // Thumbnails are small, fixed-size (64x64) tiles clipped by their parent
 // button's overflow:hidden — unlike the large main image, they don't need
@@ -62,6 +73,12 @@ export default function ProductDetail() {
   const { products, savedProductIds, toggleSave } = useAppState();
   const [matchGroupMembers, setMatchGroupMembers] = useState<Product[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  // Cosmetic-only selection — see COSMETIC_SIZE_OPTIONS above. Never read
+  // anywhere else; it exists purely for the visual size-chip affordance.
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [showSizeChartNote, setShowSizeChartNote] = useState(false);
+  const alsoAvailableRef = useRef<HTMLDivElement>(null);
+  const sizeChartSectionRef = useRef<HTMLDivElement>(null);
 
   const product = products.find((p) => p.id === Number(id));
 
@@ -92,6 +109,8 @@ export default function ProductDetail() {
   // thumbnail index the user last clicked while viewing product A.
   useEffect(() => {
     setActiveImageIndex(0);
+    setSelectedSize(null);
+    setShowSizeChartNote(false);
   }, [product]);
 
   if (!product) {
@@ -103,6 +122,7 @@ export default function ProductDetail() {
   const hasColor = Boolean(product.color);
   const hasMaterial = Boolean(product.material);
   const hasDescription = Boolean(product.description);
+  const hasCategory = Boolean(product.category);
   // Real/scraped listings only ever carry no fit-breakdown — see
   // products/amazonBrowseNodes.ts and schema.sql's column defaults
   // (confidence: 75, breakdown: []) for why. Showing a "confidence" score
@@ -119,10 +139,37 @@ export default function ProductDetail() {
   const hasGallery = galleryImages.length > 0;
   const activeImage = hasGallery ? galleryImages[Math.min(activeImageIndex, galleryImages.length - 1)] : undefined;
   const sizeChartRows = sizeChartEntries(product.sizeChart);
+  // The only rating shown anywhere in this app is derived from fitScore
+  // (lib/ratingDisplay.ts) — there is no real ratings/reviewCount field on
+  // Product, so this never pairs the star number with a fabricated count.
+  const rating = ratingFromFitScore(product.fitScore);
+  // Same manually-curated match-group data AlsoAvailableAt/PriceCompareTeaser
+  // use (fetchMatchGroup) — reused here rather than refetched, so "N stores"
+  // always reflects the same real cross-store data those components show.
+  const hasMatchGroup = matchGroupMembers.length > 0;
+  const storeListings = hasMatchGroup ? [product, ...matchGroupMembers] : [];
+  const storeCount = storeListings.length;
+  const lowestPrice = hasMatchGroup ? Math.min(...storeListings.map((p) => p.price)) : product.price;
+  const isLowestHere = hasMatchGroup && product.price <= lowestPrice;
+  // Curator-authored `productUrl` — only real listings can be bought
+  // directly, so this CTA is omitted (not shown as disabled) when there
+  // isn't one, matching this page's other hasX-gated affordances.
+  const hasBuyUrl = Boolean(product.productUrl);
 
   return (
     <main style={{ maxWidth: 1120, margin: '0 auto', padding: '32px 28px 80px' }}>
-      <button onClick={() => navigate('/discover')} style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', fontSize: 13, marginBottom: 18, padding: 0 }}>← Back to Discover</button>
+      {/* Minimal breadcrumb — this page had none before. Deliberately stops
+          at the category rather than repeating the product name (already
+          the page's <h1>) as a second visible copy of the same text. */}
+      <nav aria-label="Breadcrumb" style={{ marginBottom: 18, fontSize: 13, color: 'var(--ink-faint)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <button onClick={() => navigate('/discover')} style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', fontSize: 13, padding: 0, cursor: 'pointer' }}>Discover</button>
+        {product.bucket && (
+          <>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page" style={{ color: 'var(--ink-soft)', fontWeight: 600 }}>{product.bucket}</span>
+          </>
+        )}
+      </nav>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48 }}>
         <div>
           {/* Keyed on the currently displayed image so ProductImage's own
@@ -161,12 +208,27 @@ export default function ProductDetail() {
             {product.store}
             {hasBrand ? ` · ${product.brand}` : ''}
           </div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 12px' }}>{product.name}</h1>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 18 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, margin: '0 0 8px' }}>{product.name}</h1>
+          {/* Derived from fitScore (lib/ratingDisplay.ts) — the only source of
+              a displayed star rating in this app. Never paired with a
+              fabricated review count, since no real one exists. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 12 }}>
+            <span aria-hidden="true" style={{ color: 'var(--amber-text)' }}>★</span>
+            <span aria-label={`Rated ${rating} out of 5`}>{rating}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: hasMatchGroup ? 8 : 18, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 22, fontWeight: 700 }}>{fmt(product.price)}</span>
             <span style={{ fontSize: 14, color: 'var(--ink-faint)', textDecoration: 'line-through' }}>{fmt(product.mrp)}</span>
             <span style={{ fontSize: 13, color: 'var(--accent-dark)', fontWeight: 600 }}>{discountLabel(product.price, product.mrp)}</span>
           </div>
+          {/* Only shown once there's real cross-store data to back the claim
+              (same match-group source AlsoAvailableAt/PriceCompareTeaser use)
+              — never a fabricated store count. */}
+          {hasMatchGroup && (
+            <p style={{ fontSize: 12.5, fontWeight: 600, color: isLowestHere ? 'var(--accent-dark)' : 'var(--ink-faint)', margin: '0 0 18px' }}>
+              {isLowestHere ? `Lowest of ${storeCount} stores` : `Compare — ${storeCount} stores have this item`}
+            </p>
+          )}
           {(hasColor || hasMaterial) && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20, fontSize: 13 }}>
               {hasColor && <div><div style={{ color: 'var(--ink-faint)', marginBottom: 3 }}>Color</div><div style={{ fontWeight: 600 }}>{product.color}</div></div>}
@@ -188,7 +250,7 @@ export default function ProductDetail() {
               than throwing on a malformed value. Most products have no
               sizeChart yet, so this renders nothing for the common case. */}
           {sizeChartRows.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
+            <div ref={sizeChartSectionRef} style={{ marginBottom: 20 }}>
               <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-faint)', margin: '0 0 6px' }}>Size chart</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13 }}>
                 {sizeChartRows.map(([key, value]) => (
@@ -200,28 +262,79 @@ export default function ProductDetail() {
               </div>
             </div>
           )}
-          {product.productUrl && (
-            <a
-              href={product.productUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--accent-dark)', marginBottom: 20, textDecoration: 'none' }}
-            >
-              View full listing on {product.store} ↗
-            </a>
-          )}
-          {/* No real per-product *selectable size* data exists (fetch-product's
-              parsers all hardcode sizeChart: null, and there's no per-size
-              stock/availability signal anywhere in this catalog — see
-              supabase/functions/fetch-product/parsers/*.ts) — only a
-              reference chart (rendered above, when curated) for products
-              that have one. A clickable S/M/L/XL picker would imply real
-              size availability that doesn't exist; omitting it entirely
-              (rather than a fake picker) matches this page's hasRealFitData
-              pattern below. */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 26 }}>
-            <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 9 }}>See it on me</button>
-            <button onClick={() => toggleSave(product.id)} style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, padding: '14px 18px', borderRadius: 9, color: isSaved ? 'var(--accent-dark)' : 'var(--ink-faint)' }}>{isSaved ? '♥ Saved' : '♡ Save'}</button>
+          {/* Cosmetic-only size picker — see COSMETIC_SIZE_OPTIONS above.
+              No real per-size stock/availability data exists anywhere in
+              this catalog (fetch-product's parsers all hardcode sizeChart:
+              null), so selecting a chip sets local UI state only and is
+              never presented as, or wired into, a real availability check. */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-faint)' }}>Size</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (sizeChartRows.length > 0) {
+                    sizeChartSectionRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+                  } else {
+                    setShowSizeChartNote((v) => !v);
+                  }
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--accent-dark)', fontSize: 12.5, fontWeight: 600, padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Size guide
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {COSMETIC_SIZE_OPTIONS.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => setSelectedSize(size)}
+                  aria-pressed={selectedSize === size}
+                  style={{
+                    minWidth: 40,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: selectedSize === size ? 'var(--accent)' : 'var(--surface)',
+                    color: selectedSize === size ? '#fff' : 'var(--ink-soft)',
+                    border: selectedSize === size ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  }}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+            {showSizeChartNote && sizeChartRows.length === 0 && (
+              <p style={{ fontSize: 12, color: 'var(--ink-faint)', margin: '8px 0 0' }}>
+                A size chart isn't available for this item yet.
+              </p>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 26, flexWrap: 'wrap' }}>
+            <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: '1 1 160px', background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 9, cursor: 'pointer' }}>See it on me</button>
+            {hasBuyUrl && (
+              <a
+                href={product.productUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ flex: '1 1 160px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 9, color: 'var(--ink)', textDecoration: 'none', textAlign: 'center' }}
+              >
+                Buy on {product.store} for {fmt(product.price)}
+              </a>
+            )}
+            <button onClick={() => toggleSave(product.id)} style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, padding: '14px 18px', borderRadius: 9, color: isSaved ? 'var(--accent-dark)' : 'var(--ink-faint)', cursor: 'pointer' }}>{isSaved ? '♥ Saved' : '♡ Save'}</button>
+            {hasMatchGroup && (
+              <button
+                type="button"
+                onClick={() => alsoAvailableRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
+                style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, padding: '14px 18px', borderRadius: 9, color: 'var(--ink-soft)', cursor: 'pointer' }}
+              >
+                Compare stores
+              </button>
+            )}
           </div>
           {hasRealFitData ? (
             <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 20, background: 'var(--surface-alt)' }}>
@@ -249,7 +362,43 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
-      <AlsoAvailableAt members={matchGroupMembers} />
+      {/* Only rows backed by real data on this product — same hasX pattern
+          used throughout this page (hasColor/hasMaterial/hasDescription
+          above). No fabricated "Neck"/"Care" rows for fields this catalog
+          doesn't actually carry. */}
+      {(hasCategory || hasBrand || hasColor || hasMaterial) && (
+        <section style={{ marginTop: 32, border: '1px solid var(--border)', borderRadius: 14, padding: 20, background: 'var(--surface-alt)' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 14px' }}>Product details</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {[
+              hasCategory && { label: 'Category', value: product.category },
+              hasBrand && { label: 'Brand', value: product.brand },
+              hasColor && { label: 'Color', value: product.color },
+              hasMaterial && { label: 'Fabric / material', value: product.material },
+            ].filter((row): row is { label: string; value: string } => Boolean(row)).map((row, index, rows) => (
+              <div
+                key={row.label}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '9px 0',
+                  borderBottom: index < rows.length - 1 ? '1px solid var(--border)' : 'none',
+                  fontSize: 13,
+                }}
+              >
+                <span style={{ color: 'var(--ink-faint)' }}>{row.label}</span>
+                <span style={{ fontWeight: 600 }}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--ink-faint)', margin: '16px 0 0', lineHeight: 1.5 }}>
+            Delivery, returns and payment are handled by the store you choose.
+          </p>
+        </section>
+      )}
+      <div ref={alsoAvailableRef}>
+        <AlsoAvailableAt members={matchGroupMembers} />
+      </div>
       <SimilarProducts product={product} allProducts={products} />
     </main>
   );

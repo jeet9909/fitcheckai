@@ -40,7 +40,7 @@ describe('AlsoAvailableAt', () => {
     ];
     render(<AlsoAvailableAt members={members} />);
 
-    expect(screen.getByText('Also available at')).toBeInTheDocument();
+    expect(screen.getByText('Where to buy it')).toBeInTheDocument();
     expect(screen.getAllByText('Flipkart').length).toBeGreaterThan(0);
     expect(screen.getByText(/₹799/)).toBeInTheDocument();
     expect(screen.getAllByText('Myntra').length).toBeGreaterThan(0);

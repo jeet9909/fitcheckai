@@ -113,7 +113,7 @@ describe('ProductDetail', () => {
       expect(screen.queryByText(/Flipkart/)).not.toBeInTheDocument();
       expect(screen.queryByText(/₹999/)).not.toBeInTheDocument();
       // Product B genuinely has no match group, so the section renders nothing.
-      expect(screen.queryByText('Also available at')).not.toBeInTheDocument();
+      expect(screen.queryByText('Where to buy it')).not.toBeInTheDocument();
       expect(screen.getByText('Product B')).toBeInTheDocument();
     });
 
@@ -127,7 +127,7 @@ describe('ProductDetail', () => {
       paramsId = '5';
       render(<ProductDetail />);
 
-      expect(await screen.findByText('Also available at')).toBeInTheDocument();
+      expect(await screen.findByText('Where to buy it')).toBeInTheDocument();
       expect(screen.getAllByText('Myntra').length).toBeGreaterThan(0);
       expect(screen.getByText(/₹555/)).toBeInTheDocument();
     });
@@ -155,7 +155,7 @@ describe('ProductDetail', () => {
   });
 
   describe('happy path', () => {
-    it('renders nothing in the "Also available at" section for a product with no match group', async () => {
+    it('renders nothing in the "Where to buy it" section for a product with no match group', async () => {
       const product = makeProduct({ id: 10, name: 'No Group Product' });
       productsMock = [product];
       fetchMatchGroupMock.mockResolvedValue([]);
@@ -165,7 +165,7 @@ describe('ProductDetail', () => {
 
       expect(screen.getByText('No Group Product')).toBeInTheDocument();
       await waitFor(() => expect(fetchMatchGroupMock).toHaveBeenCalledWith(10));
-      expect(screen.queryByText('Also available at')).not.toBeInTheDocument();
+      expect(screen.queryByText('Where to buy it')).not.toBeInTheDocument();
     });
 
     it('renders AlsoAvailableAt with the returned members for a product with a match group', async () => {
@@ -178,7 +178,7 @@ describe('ProductDetail', () => {
       paramsId = '11';
       render(<ProductDetail />);
 
-      expect(await screen.findByText('Also available at')).toBeInTheDocument();
+      expect(await screen.findByText('Where to buy it')).toBeInTheDocument();
       expect(screen.getAllByText('AJIO').length).toBeGreaterThan(0);
       expect(screen.getByText(/₹349/)).toBeInTheDocument();
     });

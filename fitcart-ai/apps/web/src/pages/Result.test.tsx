@@ -62,8 +62,8 @@ describe('Result', () => {
     locationState = null;
     render(<Result />);
 
-    expect(screen.getByText(/H&M Oversized Tee/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Buy at Myntra/ })).toBeInTheDocument();
+    expect(screen.getAllByText(/H&M Oversized Tee/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Buy on Myntra/ })).toBeInTheDocument();
   });
 
   it('looks up and displays the real catalog product the try-on was for, given a forwarded productId', () => {
@@ -72,8 +72,8 @@ describe('Result', () => {
 
     render(<Result />);
 
-    expect(screen.getByText(/Real Linen Shirt/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Buy at Flipkart.*₹1,299/ })).toBeInTheDocument();
+    expect(screen.getAllByText(/Real Linen Shirt/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Buy on Flipkart.*₹1,299/ })).toBeInTheDocument();
   });
 
   it('does not crash and falls back to the mock garment when the forwarded productId is not in the loaded catalog', () => {
@@ -82,7 +82,7 @@ describe('Result', () => {
 
     render(<Result />);
 
-    expect(screen.getByText(/H&M Oversized Tee/)).toBeInTheDocument();
+    expect(screen.getAllByText(/H&M Oversized Tee/).length).toBeGreaterThan(0);
   });
 
   it('forwards the same productId when re-rendering for another size', () => {
@@ -90,7 +90,7 @@ describe('Result', () => {
     locationState = { productId: 7 };
 
     render(<Result />);
-    fireEvent.click(screen.getByRole('button', { name: /try another size/i }));
+    fireEvent.click(screen.getByRole('button', { name: /try size .* instead/i }));
 
     expect(navigateMock).toHaveBeenCalledWith('/processing', { state: { afterRoute: '/result', productId: 7 } });
   });
