@@ -152,7 +152,7 @@ export default function Result() {
           </p>
         </div>
 
-        <div style={{ borderTop: '1px solid var(--hairline)', paddingTop: 16 }}>
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 4 }}>{verdict.brand}</div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{verdict.garment}</div>
           <div style={{ fontSize: 14, color: 'var(--ink-faint)' }}>
@@ -160,7 +160,7 @@ export default function Result() {
           </div>
         </div>
 
-        <button onClick={handleBuy} className="fc-btn-primary">
+        <button onClick={handleBuy} className="fc-btn-dark">
           Buy on {verdict.store} for {verdict.price}
         </button>
 
@@ -175,8 +175,8 @@ export default function Result() {
                 fontWeight: 700,
                 letterSpacing: 0.5,
                 color: 'var(--ink-faint)',
-                background: 'var(--paper)',
-                border: '1px solid var(--hairline)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: 999,
                 padding: '2px 8px',
               }}

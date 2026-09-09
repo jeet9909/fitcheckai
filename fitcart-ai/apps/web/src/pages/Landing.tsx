@@ -154,8 +154,8 @@ export default function Landing() {
                     className="mono"
                     style={{
                       position: 'absolute', top: 8, left: 8, zIndex: 1,
-                      background: 'var(--teal)', color: '#fff', fontSize: 9.5, fontWeight: 700,
-                      padding: '4px 8px', borderRadius: 6, letterSpacing: '0.03em',
+                      background: 'var(--accent-soft)', color: 'var(--accent-dark)', fontSize: 9.5, fontWeight: 700,
+                      padding: '4px 10px', borderRadius: 100, letterSpacing: '0.03em',
                     }}
                   >
                     TRY-ON READY

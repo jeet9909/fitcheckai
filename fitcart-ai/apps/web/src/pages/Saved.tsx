@@ -103,7 +103,7 @@ export default function Saved() {
               <p style={{ fontSize: 13.5, color: 'var(--ink-faint)', margin: '0 0 14px' }}>Nothing saved yet. Try a garment on and save the render.</p>
               <button
                 onClick={handleSaveEmptyState}
-                style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '10px 18px', borderRadius: 8 }}
+                style={{ background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, padding: '10px 18px', borderRadius: 100 }}
               >
                 See it on me
               </button>
@@ -116,8 +116,8 @@ export default function Saved() {
                     <ProductImage product={p} ratio="1/1" radius={0}>
                       <span
                         style={{
-                          position: 'absolute', top: 8, left: 8, background: 'var(--accent)', color: '#fff',
-                          borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, fontFamily: "'Sora',sans-serif",
+                          position: 'absolute', top: 8, left: 8, background: 'var(--accent-soft)', color: 'var(--accent-dark)',
+                          borderRadius: 100, padding: '3px 10px', fontSize: 10, fontWeight: 700,
                         }}
                       >
                         Saved
@@ -130,7 +130,7 @@ export default function Saved() {
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
                         onClick={() => navigate('/setup', { state: { productId: p.id } })}
-                        style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 11.5, fontWeight: 700, padding: '8px 10px', borderRadius: 7, cursor: 'pointer' }}
+                        style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 11.5, fontWeight: 700, padding: '8px 10px', borderRadius: 100, cursor: 'pointer' }}
                       >
                         Try again
                       </button>
@@ -141,7 +141,7 @@ export default function Saved() {
                           rel="noopener noreferrer"
                           style={{
                             flex: 1, textAlign: 'center', background: 'none', border: '1px solid var(--border)', color: 'var(--ink-soft)',
-                            fontSize: 11.5, fontWeight: 600, padding: '8px 10px', borderRadius: 7, textDecoration: 'none',
+                            fontSize: 11.5, fontWeight: 600, padding: '8px 10px', borderRadius: 100, textDecoration: 'none',
                           }}
                         >
                           Buy
@@ -149,7 +149,7 @@ export default function Saved() {
                       ) : (
                         <button
                           onClick={() => navigate(`/product/${p.id}`)}
-                          style={{ flex: 1, background: 'none', border: '1px solid var(--border)', color: 'var(--ink-soft)', fontSize: 11.5, fontWeight: 600, padding: '8px 10px', borderRadius: 7, cursor: 'pointer' }}
+                          style={{ flex: 1, background: 'none', border: '1px solid var(--border)', color: 'var(--ink-soft)', fontSize: 11.5, fontWeight: 600, padding: '8px 10px', borderRadius: 100, cursor: 'pointer' }}
                         >
                           Buy
                         </button>

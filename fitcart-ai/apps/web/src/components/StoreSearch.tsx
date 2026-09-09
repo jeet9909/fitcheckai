@@ -170,7 +170,7 @@ function ListingRow({ listing, matchedProduct }: { listing: StoreListing; matche
               <button
                 type="button"
                 onClick={() => navigate('/setup', { state: { productId: matchedProduct.id } })}
-                style={{ border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: 12, padding: '8px 14px', borderRadius: 7, cursor: 'pointer', minHeight: 32 }}
+                style={{ border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: 12, padding: '8px 14px', borderRadius: 100, cursor: 'pointer', minHeight: 32 }}
               >
                 See it on me
               </button>
@@ -279,7 +279,7 @@ export default function StoreSearch() {
         <button
           onClick={runSearch}
           disabled={searching || !query.trim()}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, fontSize: 13, padding: '8px 16px', borderRadius: 8, opacity: searching || !query.trim() ? 0.6 : 1 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 700, fontSize: 13, padding: '8px 16px', borderRadius: 100, opacity: searching || !query.trim() ? 0.6 : 1 }}
         >
           {searching && <span className="fc-spinner" data-testid="search-spinner" aria-hidden="true" />}
           {searching ? 'Searching…' : 'Search'}

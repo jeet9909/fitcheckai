@@ -36,7 +36,7 @@ export default function Profile() {
         ) : (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: 'var(--ink-faint)' }}>No fit profile yet</span>
-            <button onClick={() => navigate('/setup')} style={{ background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, padding: '8px 14px', borderRadius: 7 }}>Set up</button>
+            <button onClick={() => navigate('/setup')} style={{ background: 'var(--ink)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, padding: '8px 14px', borderRadius: 100 }}>Set up</button>
           </div>
         )}
       </div>

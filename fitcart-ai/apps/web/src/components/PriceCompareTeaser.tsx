@@ -58,7 +58,7 @@ export default function PriceCompareTeaser({ productId }: { productId: number })
             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontWeight: 700 }}>{fmt(listing.price)}</span>
               {listing.id === lowest.id && (
-                <span className="fc-chip" style={{ background: 'var(--teal)', color: '#fff' }}>Lowest</span>
+                <span className="fc-chip" style={{ background: 'var(--teal-soft)', color: 'var(--teal)' }}>Lowest</span>
               )}
             </span>
           </li>

@@ -225,7 +225,7 @@ export default function ProductDetail() {
               (same match-group source AlsoAvailableAt/PriceCompareTeaser use)
               — never a fabricated store count. */}
           {hasMatchGroup && (
-            <p style={{ fontSize: 12.5, fontWeight: 600, color: isLowestHere ? 'var(--accent-dark)' : 'var(--ink-faint)', margin: '0 0 18px' }}>
+            <p style={{ fontSize: 12.5, fontWeight: 600, color: isLowestHere ? 'var(--teal)' : 'var(--ink-faint)', margin: '0 0 18px' }}>
               {isLowestHere ? `Lowest of ${storeCount} stores` : `Compare — ${storeCount} stores have this item`}
             </p>
           )}
@@ -314,23 +314,23 @@ export default function ProductDetail() {
             )}
           </div>
           <div style={{ display: 'flex', gap: 10, marginBottom: 26, flexWrap: 'wrap' }}>
-            <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: '1 1 160px', background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 9, cursor: 'pointer' }}>See it on me</button>
+            <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: '1 1 160px', background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 100, cursor: 'pointer' }}>See it on me</button>
             {hasBuyUrl && (
               <a
                 href={product.productUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ flex: '1 1 160px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 9, color: 'var(--ink)', textDecoration: 'none', textAlign: 'center' }}
+                style={{ flex: '1 1 160px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'var(--ink)', fontSize: 14, fontWeight: 700, padding: 14, borderRadius: 100, color: '#fff', textDecoration: 'none', textAlign: 'center' }}
               >
                 Buy on {product.store} for {fmt(product.price)}
               </a>
             )}
-            <button onClick={() => toggleSave(product.id)} style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, padding: '14px 18px', borderRadius: 9, color: isSaved ? 'var(--accent-dark)' : 'var(--ink-faint)', cursor: 'pointer' }}>{isSaved ? '♥ Saved' : '♡ Save'}</button>
+            <button onClick={() => toggleSave(product.id)} style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 700, padding: '14px 18px', borderRadius: 100, color: isSaved ? 'var(--accent-dark)' : 'var(--ink-faint)', cursor: 'pointer' }}>{isSaved ? '♥ Saved' : '♡ Save'}</button>
             {hasMatchGroup && (
               <button
                 type="button"
                 onClick={() => alsoAvailableRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })}
-                style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 600, padding: '14px 18px', borderRadius: 9, color: 'var(--ink-soft)', cursor: 'pointer' }}
+                style={{ border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 14, fontWeight: 700, padding: '14px 18px', borderRadius: 100, color: 'var(--ink-soft)', cursor: 'pointer' }}
               >
                 Compare stores
               </button>

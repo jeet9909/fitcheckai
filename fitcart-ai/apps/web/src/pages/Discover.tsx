@@ -319,7 +319,7 @@ export default function Discover() {
               key={b}
               onClick={() => setCategoryFilter(b)}
               aria-pressed={active}
-              style={{ border: `1px solid ${active ? 'var(--ink)' : 'var(--border)'}`, background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#fff' : 'var(--ink-soft)', fontSize: 13, fontWeight: 500, padding: '8px 16px', borderRadius: 20, cursor: 'pointer' }}
+              style={{ border: `1px solid ${active ? 'var(--ink)' : 'var(--border)'}`, background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#fff' : 'var(--ink-soft)', fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 100, cursor: 'pointer' }}
             >
               {b}
             </button>
@@ -468,7 +468,7 @@ export default function Discover() {
                           border: `1px solid ${isComparing ? 'var(--accent-dark)' : 'var(--border)'}`,
                           background: isComparing ? 'var(--accent-soft)' : 'var(--surface)',
                           color: isComparing ? 'var(--accent-dark)' : 'var(--ink-soft)',
-                          fontSize: 12, fontWeight: 600, padding: '7px 10px', borderRadius: 7, cursor: 'pointer',
+                          fontSize: 12, fontWeight: 700, padding: '7px 10px', borderRadius: 100, cursor: 'pointer',
                         }}
                       >
                         {isComparing ? 'Added to compare' : 'Add to compare'}

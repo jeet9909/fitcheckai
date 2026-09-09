@@ -16,9 +16,9 @@ export default function ProductCard({ product }: { product: Product }) {
       <div onClick={() => navigate(`/product/${product.id}`)} style={{ cursor: 'pointer', position: 'relative' }}>
         <ProductImage product={product} ratio="3/4" radius={0}>
           <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', gap: 5 }}>
-            <span style={{ background: '#fff', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 600, color: 'var(--ink-soft)', fontFamily: "'Sora',sans-serif" }}>{product.store}</span>
+            <span style={{ background: '#fff', borderRadius: 100, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: 'var(--ink-soft)' }}>{product.store}</span>
             {isDemo && (
-              <span style={{ background: 'var(--amber-soft)', borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, color: 'var(--amber-text)', fontFamily: "'Sora',sans-serif" }}>Demo</span>
+              <span style={{ background: 'var(--amber-soft)', borderRadius: 100, padding: '3px 10px', fontSize: 10, fontWeight: 700, color: 'var(--amber-text)' }}>Demo</span>
             )}
           </div>
           <button
@@ -38,11 +38,11 @@ export default function ProductCard({ product }: { product: Product }) {
           <span style={{ fontSize: 11, color: 'var(--accent-dark)', fontWeight: 600 }}>{discountLabel(product.price, product.mrp)}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-          <span style={{ background: fitBg(product.fitScore), color: fitColor(product.fitScore), fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6 }}>Fit {product.fitScore}</span>
+          <span style={{ background: fitBg(product.fitScore), color: fitColor(product.fitScore), fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 100 }}>Fit {product.fitScore}</span>
           <span style={{ fontSize: 10, color: 'var(--ink-faint)' }}>AI recommended</span>
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-          <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, padding: 8, borderRadius: 7 }}>See it on me</button>
+          <button onClick={() => navigate('/setup', { state: { productId: product.id } })} style={{ flex: 1, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 700, padding: 8, borderRadius: 100 }}>See it on me</button>
         </div>
       </div>
     </div>
