@@ -33,6 +33,7 @@ jobs:
         env:
           GITHUB_PAGES: true
           VITE_MOCK_API: true
+          VITE_FITCART_API_URL: https://fitcart-scraper-api.onrender.com
       - uses: actions/upload-pages-artifact@v3
         with:
           path: fitcart-ai/apps/web/dist

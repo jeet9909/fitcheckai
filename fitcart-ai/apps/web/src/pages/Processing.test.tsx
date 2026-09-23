@@ -1,61 +1,57 @@
-import { act, render } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const navigateMock = vi.fn();
+const createTryOnMock = vi.fn();
 let locationState: { afterRoute?: string; sourceLink?: string | null; productId?: number | null } | null = null;
+
+const tryOn = {
+  id: 'tryon-1', anonymous_user_id: 'user-1', category: 'shirt', product_source: 'upload' as const,
+  product_url: null, person_image_url: 'https://example.com/person', product_image_url: 'https://example.com/product',
+  result_image_url: 'https://example.com/result', model: 'gemini-3.1-flash-image', created_at: '2026-09-23T00:00:00Z',
+};
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock,
   useLocation: () => ({ state: locationState }),
 }));
 
+vi.mock('../lib/fitcartApi', () => ({
+  createTryOn: (...args: unknown[]) => createTryOnMock(...args),
+  saveLatestTryOn: vi.fn(),
+}));
+
+vi.mock('../lib/tryOnDraft', () => ({
+  getTryOnDraft: () => ({ personImage: new File(['x'], 'person.png'), productImage: new File(['x'], 'product.png'), category: 'shirt' }),
+  clearTryOnDraft: vi.fn(),
+}));
+
 const { default: Processing } = await import('./Processing');
 
-// Advances in 900ms increments (Processing's own step interval), matching
-// how the fake-timer clock actually gets driven in this suite — a single
-// large advanceTimersByTimeAsync() call across the interval-then-nested-
-// setTimeout boundary is unreliable here, so this steps through each tick
-// instead of jumping straight to the end.
-async function runOutTheClock(ticks: number) {
-  for (let i = 0; i < ticks; i += 1) {
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(900);
-    });
-  }
-}
-
 describe('Processing', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
   afterEach(() => {
-    vi.useRealTimers();
     navigateMock.mockReset();
+    createTryOnMock.mockReset();
     locationState = null;
   });
 
-  it('forwards productId (alongside sourceLink) through to the afterRoute once processing completes', async () => {
+  it('calls the real try-on client and forwards the generated result', async () => {
+    createTryOnMock.mockResolvedValue(tryOn);
     locationState = { afterRoute: '/result', sourceLink: 'https://www.myntra.com/p/1', productId: 42 };
     render(<Processing />);
 
-    await runOutTheClock(6);
-
-    expect(navigateMock).toHaveBeenCalledWith('/result', {
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/result', {
       replace: true,
-      state: { sourceLink: 'https://www.myntra.com/p/1', productId: 42 },
-    });
+      state: { sourceLink: 'https://www.myntra.com/p/1', productId: 42, tryOn },
+    }));
+    expect(createTryOnMock).toHaveBeenCalledOnce();
   });
 
-  it('forwards productId: null when no product was involved (upload-only flow)', async () => {
-    locationState = { afterRoute: '/result', sourceLink: null };
+  it('shows an API failure instead of navigating to a fake result', async () => {
+    createTryOnMock.mockRejectedValue(new Error('Gemini image generation failed'));
     render(<Processing />);
 
-    await runOutTheClock(6);
-
-    expect(navigateMock).toHaveBeenCalledWith('/result', {
-      replace: true,
-      state: { sourceLink: null, productId: null },
-    });
+    await waitFor(() => expect(document.body).toHaveTextContent('Gemini image generation failed'));
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

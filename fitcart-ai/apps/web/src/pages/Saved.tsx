@@ -4,6 +4,7 @@ import { useAppState } from '../state/AppState';
 import { useAuth } from '../state/AuthState';
 import { supabase } from '../lib/supabase';
 import ProductImage from '../components/ProductImage';
+import { fetchGallery, saveLatestTryOn, type GalleryItem } from '../lib/fitcartApi';
 
 interface SizeMemoryRow {
   brand: string;
@@ -35,6 +36,9 @@ export default function Saved() {
   const savedProducts = savedProductIds.map((id) => products.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p));
 
   const [activeTab, setActiveTab] = useState<LooksTab>('saved');
+  const [tryOns, setTryOns] = useState<GalleryItem[]>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryError, setGalleryError] = useState<string | null>(null);
   // `null` = no real size-memory data (guest, signed-in user with no rows
   // yet, or Supabase not configured). Only ever set to a real array once
   // real rows come back from Supabase — never fabricated.
@@ -53,6 +57,16 @@ export default function Saved() {
         setSizeMemory(data && data.length > 0 ? data : null);
       });
   }, [user]);
+
+  useEffect(() => {
+    if (activeTab !== 'tried-on') return;
+    setGalleryLoading(true);
+    setGalleryError(null);
+    fetchGallery()
+      .then(setTryOns)
+      .catch((reason: unknown) => setGalleryError(reason instanceof Error ? reason.message : 'Could not load your try-on gallery'))
+      .finally(() => setGalleryLoading(false));
+  }, [activeTab]);
 
   const handleSaveEmptyState = () => {
     if (!user) {
@@ -170,7 +184,29 @@ export default function Saved() {
       )}
 
       {activeTab === 'outfits' && <EmptyTabState message="No outfits saved yet." />}
-      {activeTab === 'tried-on' && <EmptyTabState message="You haven't tried anything on yet." />}
+      {activeTab === 'tried-on' && (
+        galleryLoading ? <EmptyTabState message="Loading your private gallery…" />
+          : galleryError ? <EmptyTabState message={galleryError} />
+            : tryOns.length === 0 ? <EmptyTabState message="You haven't tried anything on yet." />
+              : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 16, marginBottom: 36 }}>
+                  {tryOns.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => { saveLatestTryOn(item); navigate('/result', { state: { tryOn: item } }); }}
+                      style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                    >
+                      <img src={item.result_image_url} alt={`Try-on result for ${item.category}`} style={{ width: '100%', aspectRatio: '4/5', objectFit: 'cover', display: 'block' }} />
+                      <div style={{ padding: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'capitalize' }}>{item.category}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 3 }}>{new Date(item.created_at).toLocaleString()}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )
+      )}
       {activeTab === 'recently-viewed' && <EmptyTabState message="Nothing viewed recently." />}
 
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 14 }}>Size memory</div>

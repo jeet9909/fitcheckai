@@ -9,6 +9,7 @@ import { useAuth } from '../state/AuthState';
 import { supabase } from '../lib/supabase';
 import { hasFreeRendersLeft, recordRenderUsed, rendersRemaining } from '../lib/renderGate';
 import { startCheckout } from '../lib/checkout';
+import { loadLatestTryOn, type GalleryItem } from '../lib/fitcartApi';
 
 /**
  * THE AHA. One garment, one body, one plain-language verdict.
@@ -30,8 +31,10 @@ export default function Result() {
   // the try-on was actually for. Absent entirely for the upload-only /
   // paste-a-link flows (no catalog product involved) — that's expected, not
   // an error.
-  const productId = (location.state as { productId?: number | null } | null)?.productId ?? null;
+  const routeState = location.state as { productId?: number | null; tryOn?: GalleryItem } | null;
+  const productId = routeState?.productId ?? null;
   const product = productId != null ? products.find((p) => p.id === productId) ?? null : null;
+  const tryOn = routeState?.tryOn ?? loadLatestTryOn();
 
   // TODO(backend): everything below is a mock verdict — replace with the
   // real render + verdict API response. Garment identity (name/brand/store/
@@ -81,6 +84,10 @@ export default function Result() {
   };
 
   const handleSave = async () => {
+    if (tryOn) {
+      showToast('Already saved to your private try-on gallery');
+      return;
+    }
     if (!user) {
       navigate('/auth?redirect=/result');
       return;
@@ -97,9 +104,8 @@ export default function Result() {
   };
 
   const handleBuy = () => {
-    // TODO(backend): open the retailer with the affiliate tag attached,
-    // per board D. Works for guests too — affiliate revenue never gated.
-    showToast('Opening retailer with your recommended size…');
+    if (product?.productUrl) window.open(product.productUrl, '_blank', 'noopener,noreferrer');
+    else showToast('A retailer link is not available for this uploaded product');
   };
 
   const handleTryOutfit = () => {
@@ -132,9 +138,15 @@ export default function Result() {
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 20 }}>
         <div>
           <div style={{ position: 'relative' }}>
-            <Placeholder ratio="4/5" radius={18} fontSize={12} padding={20}>
-              {showOriginal ? `ORIGINAL CATALOG PHOTO — ${verdict.garment}` : `YOUR RENDER — ${verdict.garment}`}
-            </Placeholder>
+            {tryOn ? (
+              <img
+                src={showOriginal ? tryOn.product_image_url : tryOn.result_image_url}
+                alt={showOriginal ? `Original product — ${verdict.garment}` : `AI try-on — ${verdict.garment}`}
+                style={{ width: '100%', aspectRatio: '4/5', borderRadius: 18, objectFit: 'contain', background: 'var(--surface-alt)', display: 'block' }}
+              />
+            ) : (
+              <Placeholder ratio="4/5" radius={18} fontSize={12} padding={20}>No generated try-on available</Placeholder>
+            )}
           </div>
           <button
             onClick={() => setShowOriginal((v) => !v)}
@@ -142,7 +154,7 @@ export default function Result() {
             style={{ marginTop: 10, width: '100%', fontSize: 12.5 }}
             aria-pressed={showOriginal}
           >
-            {showOriginal ? 'Show my try-on' : 'Original catalog photo'}
+            {showOriginal ? 'Show my try-on' : 'Original product image'}
           </button>
           <p style={{ fontSize: 11, color: 'var(--ink-faint)', textAlign: 'center', margin: '6px 0 0' }}>
             Tap to compare side by side
@@ -160,9 +172,7 @@ export default function Result() {
           </div>
         </div>
 
-        <button onClick={handleBuy} className="fc-btn-dark">
-          Buy on {verdict.store} for {verdict.price}
-        </button>
+        {product?.productUrl && <button onClick={handleBuy} className="fc-btn-dark">Buy on {verdict.store} for {verdict.price}</button>}
 
         <div style={{ border: '2px solid var(--teal)', background: 'var(--teal-soft)', borderRadius: 14, padding: '18px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>

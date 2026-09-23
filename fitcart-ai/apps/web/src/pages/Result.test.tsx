@@ -63,11 +63,11 @@ describe('Result', () => {
     render(<Result />);
 
     expect(screen.getAllByText(/H&M Oversized Tee/).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: /Buy on Myntra/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Buy on Myntra/ })).not.toBeInTheDocument();
   });
 
   it('looks up and displays the real catalog product the try-on was for, given a forwarded productId', () => {
-    productsMock = [makeProduct({ id: 42, name: 'Real Linen Shirt', store: 'Flipkart', price: 1299 })];
+    productsMock = [makeProduct({ id: 42, name: 'Real Linen Shirt', store: 'Flipkart', price: 1299, productUrl: 'https://www.flipkart.com/item/42' })];
     locationState = { productId: 42 };
 
     render(<Result />);

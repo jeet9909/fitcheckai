@@ -11,7 +11,10 @@ vi.mock('react-router-dom', () => ({
 }));
 
 vi.mock('../state/AppState', () => ({
-  useAppState: () => ({ markProfileSetupDone: markProfileSetupDoneMock }),
+  useAppState: () => ({
+    markProfileSetupDone: markProfileSetupDoneMock,
+    products: [{ id: 42, name: 'Test shirt', store: 'Myntra', category: 'Shirts', slot: 'top', imageUrl: 'https://example.com/shirt.jpg' }],
+  }),
 }));
 
 const { default: Setup } = await import('./Setup');
@@ -60,6 +63,7 @@ describe('Setup', () => {
     render(<Setup />);
 
     uploadPhoto();
+    fireEvent.change(screen.getByPlaceholderText(/paste amazon/i), { target: { value: 'https://www.myntra.com/product/1' } });
     await waitFor(() => expect(screen.getByRole('button', { name: /create my try-on/i })).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', { name: /create my try-on/i }));
 
@@ -74,6 +78,7 @@ describe('Setup', () => {
     const file = new File(['x'], 'photo.png', { type: 'image/png' });
 
     fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
+    fireEvent.change(screen.getByPlaceholderText(/paste amazon/i), { target: { value: 'https://www.myntra.com/product/1' } });
 
     await waitFor(() => expect(screen.getByRole('button', { name: /create my try-on/i })).not.toBeDisabled());
   });
@@ -98,11 +103,11 @@ describe('Setup', () => {
 
     fireEvent.change(input, { target: { files: [file] } });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/jpg or png/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/jpg, png, or webp/i);
     expect(screen.getByRole('button', { name: /create my try-on/i })).toBeDisabled();
   });
 
-  it('rejects a file over 12 MB with an inline error and does not enable submit', () => {
+  it('rejects a file over 10 MB with an inline error and does not enable submit', () => {
     render(<Setup />);
     const oversizedFile = new File(['x'], 'photo.png', { type: 'image/png' });
     Object.defineProperty(oversizedFile, 'size', { value: 13 * 1024 * 1024 });
@@ -110,7 +115,7 @@ describe('Setup', () => {
 
     fireEvent.change(input, { target: { files: [oversizedFile] } });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/12 ?mb/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/10 ?mb/i);
     expect(screen.getByRole('button', { name: /create my try-on/i })).toBeDisabled();
   });
 
@@ -122,7 +127,7 @@ describe('Setup', () => {
 
     fireEvent.drop(dropzone, { dataTransfer: { files: [oversizedFile] } });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/12 ?mb/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/10 ?mb/i);
     expect(screen.getByRole('button', { name: /create my try-on/i })).toBeDisabled();
   });
 });

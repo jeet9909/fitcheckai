@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppState } from '../state/AppState';
+import { setTryOnDraft } from '../lib/tryOnDraft';
 
 /**
  * ONE PHOTO. This replaces the old 3-step form (photo + height/weight +
@@ -15,31 +16,55 @@ export default function Setup() {
   const setupState = location.state as { sourceLink?: string | null; productId?: number | null } | null;
   const sourceLink = setupState?.sourceLink ?? null;
   const productId = setupState?.productId ?? null;
-  const { markProfileSetupDone } = useAppState();
+  const { markProfileSetupDone, products } = useAppState();
   const [preview, setPreview] = useState<string | null>(null);
+  const [personFile, setPersonFile] = useState<File | null>(null);
+  const [productFile, setProductFile] = useState<File | null>(null);
+  const [productPreview, setProductPreview] = useState<string | null>(null);
+  const [productLink, setProductLink] = useState(sourceLink ?? '');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [fitSize, setFitSize] = useState('');
   const [fileError, setFileError] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const productInput = useRef<HTMLInputElement>(null);
 
-  const ACCEPTED_TYPES = ['image/jpeg', 'image/png'];
-  const MAX_FILE_BYTES = 12 * 1024 * 1024;
+  const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const MAX_FILE_BYTES = 10 * 1000 * 1000;
+  const selectedProduct = productId != null ? products.find((product) => product.id === productId) ?? null : null;
+  const catalogImageUrl = selectedProduct?.imageUrl;
+  const catalogPageUrl = selectedProduct?.productUrl;
+  const hasProductSource = Boolean(productFile || catalogImageUrl || catalogPageUrl || productLink.trim());
 
   const onFile = (file: File | undefined) => {
     if (!file) return;
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      setFileError('Please choose a JPG or PNG image.');
+      setFileError('Please choose a JPG, PNG, or WebP image.');
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      setFileError('That photo is over 12 MB — please choose a smaller file.');
+      setFileError('That photo is over 10 MB — please choose a smaller file.');
       return;
     }
     setFileError(null);
+    setPersonFile(file);
     const reader = new FileReader();
     reader.onload = () => setPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const onProductFile = (file: File | undefined) => {
+    if (!file) return;
+    if (!ACCEPTED_TYPES.includes(file.type) || file.size > MAX_FILE_BYTES) {
+      setFileError('Product image must be JPG, PNG, or WebP and no larger than 10 MB.');
+      return;
+    }
+    setFileError(null);
+    setProductFile(file);
+    setProductLink('');
+    const reader = new FileReader();
+    reader.onload = () => setProductPreview(reader.result as string);
     reader.readAsDataURL(file);
   };
 
@@ -60,6 +85,14 @@ export default function Setup() {
   };
 
   const submitSetup = () => {
+    if (!personFile || !hasProductSource) return;
+    setTryOnDraft({
+      personImage: personFile,
+      productImage: productFile ?? undefined,
+      productImageUrl: productFile ? undefined : catalogImageUrl,
+      productPageUrl: productFile || catalogImageUrl ? undefined : (catalogPageUrl || productLink.trim() || undefined),
+      category: selectedProduct?.category || selectedProduct?.slot || 'clothing',
+    });
     markProfileSetupDone();
     navigate('/processing', { state: { afterRoute: '/result', sourceLink, productId } });
   };
@@ -74,7 +107,8 @@ export default function Setup() {
         For the best result, use a front-facing photo with good lighting and your full body visible.
       </p>
 
-      <input ref={fileInput} type="file" accept="image/jpeg,image/png" capture="user" style={{ display: 'none' }} onChange={(e) => onFile(e.target.files?.[0])} />
+      <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" capture="user" style={{ display: 'none' }} onChange={(e) => onFile(e.target.files?.[0])} />
+      <input ref={productInput} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={(e) => onProductFile(e.target.files?.[0])} />
 
       <div
         onClick={() => fileInput.current?.click()}
@@ -96,7 +130,7 @@ export default function Setup() {
             <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-faint)', marginTop: 6, textAlign: 'center', padding: '0 20px' }}>
               Drop a photo here, or choose a file
             </span>
-            <span style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 4 }}>JPG or PNG, up to 12 MB</span>
+            <span style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 4 }}>JPG, PNG or WebP, up to 10 MB</span>
           </>
         )}
       </div>
@@ -111,6 +145,35 @@ export default function Setup() {
           {preview ? 'Retake' : 'Take photo'}
         </button>
       </div>
+
+      <section style={{ border: '1px solid var(--border)', borderRadius: 14, padding: 16, marginBottom: 20 }}>
+        <h2 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 5px' }}>Product to try on</h2>
+        {selectedProduct && (catalogImageUrl || catalogPageUrl) ? (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {(catalogImageUrl || productPreview) && <img src={productPreview || catalogImageUrl} alt="Selected product" style={{ width: 64, height: 76, borderRadius: 9, objectFit: 'cover', border: '1px solid var(--border)' }} />}
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{selectedProduct.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 3 }}>{selectedProduct.store}</div>
+            </div>
+          </div>
+        ) : productPreview ? (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <img src={productPreview} alt="Uploaded product" style={{ width: 64, height: 76, borderRadius: 9, objectFit: 'cover', border: '1px solid var(--border)' }} />
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Product image ready</span>
+          </div>
+        ) : (
+          <>
+            <input value={productLink} onChange={(event) => setProductLink(event.target.value)} placeholder="Paste Amazon, Myntra, Flipkart or product image URL" style={{ width: '100%', boxSizing: 'border-box', padding: '11px 12px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 13, marginBottom: 10 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 11.5, color: 'var(--ink-faint)' }}>or</span>
+              <button type="button" onClick={() => productInput.current?.click()} className="fc-btn-secondary" style={{ flex: 1 }}>Upload product image</button>
+            </div>
+          </>
+        )}
+        {(selectedProduct || productPreview) && (
+          <button type="button" onClick={() => { setProductFile(null); setProductPreview(null); setProductLink(''); productInput.current?.click(); }} style={{ border: 0, background: 'none', color: 'var(--accent-dark)', fontSize: 12, fontWeight: 600, padding: '10px 0 0', cursor: 'pointer' }}>Use another product image</button>
+        )}
+      </section>
 
       <h2 style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-soft)', margin: '0 0 10px' }}>
         Optional, and it helps the fit estimate
@@ -168,18 +231,18 @@ export default function Setup() {
 
       <div style={{ border: '1px solid var(--teal)', background: 'var(--teal-soft)', borderRadius: 12, padding: '14px 16px', marginBottom: 24 }}>
         <p style={{ fontSize: 12, color: 'var(--teal)', lineHeight: 1.55, margin: 0 }}>
-          Used only to render this look. Auto-deleted in 24 hours unless you save it. Never shown to anyone else.{' '}
+          Your photo and generated result are saved in your private anonymous gallery. Keep this browser's session token to access them. Never shown to other shoppers.{' '}
           <button onClick={() => navigate('/privacy')} style={{ background: 'none', border: 'none', color: 'var(--teal)', fontWeight: 700, padding: 0, textDecoration: 'underline', cursor: 'pointer', fontSize: 12 }}>
             Details
           </button>
         </p>
       </div>
 
-      <button onClick={submitSetup} disabled={!preview} className="fc-btn-primary" style={{ opacity: preview ? 1 : 0.45 }}>
+      <button onClick={submitSetup} disabled={!preview || !hasProductSource} className="fc-btn-primary" style={{ opacity: preview && hasProductSource ? 1 : 0.45 }}>
         Create my try-on
       </button>
       <p style={{ fontSize: 11.5, color: 'var(--ink-faint)', textAlign: 'center', margin: '8px 0 0' }}>
-        Usually ready in about 20 seconds.
+        Gemini generation can take up to two minutes.
       </p>
     </main>
   );
