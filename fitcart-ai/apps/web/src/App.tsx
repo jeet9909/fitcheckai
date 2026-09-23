@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
-import Landing from './pages/Landing';
+import FittingRoom from './pages/FittingRoom';
 import Discover from './pages/Discover';
 import ProductDetail from './pages/ProductDetail';
 import Setup from './pages/Setup';
@@ -21,8 +21,8 @@ import { CheckoutSuccess, CheckoutCancel } from './pages/CheckoutResult';
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Landing />} />
+      <Route path="/" element={<Layout />}>
+        <Route path="/" element={<FittingRoom />} />
         <Route path="/discover" element={<Discover />} />
         <Route path="/product/:id" element={<ProductDetail />} />
         <Route path="/setup" element={<Setup />} />

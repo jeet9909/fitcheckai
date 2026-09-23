@@ -8,7 +8,7 @@ import { AuthProvider } from './state/AuthState.tsx'
 import ScrollToTop from './components/ScrollToTop.tsx'
 import { installMockBackend } from './lib/mockBackend.ts'
 
-if (import.meta.env.VITE_MOCK_API === 'true') {
+if (import.meta.env.VITE_MOCK_API === 'true' && import.meta.env.DEV) {
   installMockBackend()
 }
 
