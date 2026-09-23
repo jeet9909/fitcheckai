@@ -86,11 +86,13 @@ export default function Setup() {
 
   const submitSetup = () => {
     if (!personFile || !hasProductSource) return;
+    const enteredLink = productLink.trim();
+    const enteredLinkIsImage = /\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(enteredLink);
     setTryOnDraft({
       personImage: personFile,
       productImage: productFile ?? undefined,
-      productImageUrl: productFile ? undefined : catalogImageUrl,
-      productPageUrl: productFile || catalogImageUrl ? undefined : (catalogPageUrl || productLink.trim() || undefined),
+      productImageUrl: productFile ? undefined : (catalogImageUrl || (enteredLinkIsImage ? enteredLink : undefined)),
+      productPageUrl: productFile || catalogImageUrl || enteredLinkIsImage ? undefined : (catalogPageUrl || enteredLink || undefined),
       category: selectedProduct?.category || selectedProduct?.slot || 'clothing',
     });
     markProfileSetupDone();
